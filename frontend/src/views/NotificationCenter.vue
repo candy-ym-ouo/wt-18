@@ -109,6 +109,14 @@
         </div>
         <div class="notif-actions">
           <button
+            v-if="notif.type === 'system_announcement'"
+            class="icon-btn view-btn"
+            title="查看详情"
+            @click.stop="openAnnouncementFromNotif(notif)"
+          >
+            👁
+          </button>
+          <button
             v-if="!notif.is_read"
             class="icon-btn"
             title="标记已读"
@@ -157,15 +165,44 @@
         下一页
       </button>
     </div>
+
+    <div v-if="showAnnouncementModal" class="modal-overlay" @click.self="closeAnnouncementModal">
+      <div class="announcement-modal">
+        <div class="am-header">
+          <div class="am-badge">📢 系统公告</div>
+          <button class="am-close" @click="closeAnnouncementModal">×</button>
+        </div>
+        <div class="am-body" v-if="announcementLoading">
+          <div class="loading-spinner sm-spinner"></div>
+          <div style="text-align:center;color:#999;margin-top:12px;">加载中...</div>
+        </div>
+        <div class="am-body" v-else-if="announcementDetail">
+          <h3 class="am-title">{{ announcementDetail.title }}</h3>
+          <div class="am-meta">
+            <span class="am-priority" :class="'priority-' + announcementDetail.priority">
+              {{ priorityLabel(announcementDetail.priority) }}
+            </span>
+            <span class="am-time">{{ announcementDetail.created_at }}</span>
+            <span v-if="announcementDetail.creator_name" class="am-author">发布者：{{ announcementDetail.creator_name }}</span>
+          </div>
+          <div class="am-content">{{ announcementDetail.content }}</div>
+        </div>
+        <div class="am-body" v-else>
+          <div style="text-align:center;color:#999;padding:20px;">公告不存在或已删除</div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useNotificationStore } from '../stores/notification';
+import { notificationsAPI } from '../api';
 
 const router = useRouter();
+const route = useRoute();
 const notifStore = useNotificationStore();
 
 const notifications = computed(() => notifStore.notifications);
@@ -176,6 +213,10 @@ const pageSize = computed(() => notifStore.pageSize);
 const unreadCount = computed(() => notifStore.unreadCount);
 const currentType = computed(() => notifStore.currentType);
 const currentReadFilter = computed(() => notifStore.currentReadFilter);
+
+const showAnnouncementModal = ref(false);
+const announcementDetail = ref(null);
+const announcementLoading = ref(false);
 
 const readFilters = [
   { value: 'all', label: '全部' },
@@ -224,6 +265,11 @@ function getTagClass(type) {
     'system_announcement': 'tag-system'
   };
   return classes[type] || '';
+}
+
+function priorityLabel(p) {
+  const map = { low: '低优先级', normal: '普通', high: '高优先级', urgent: '紧急' };
+  return map[p] || p;
 }
 
 function formatTime(timeStr) {
@@ -285,15 +331,53 @@ async function handleClearRead() {
 }
 
 async function handleNotificationClick(notif) {
-  const route = await notifStore.goToNotification(notif);
-  if (route) {
-    router.push(route);
+  if (notif.type === 'system_announcement') {
+    await notifStore.markAsRead(notif.id);
+    await openAnnouncement(notif.ref_id);
+    return;
+  }
+  const result = await notifStore.goToNotification(notif);
+  if (result) {
+    router.push(result);
   }
 }
 
-onMounted(() => {
-  notifStore.init();
-  notifStore.fetchNotifications();
+async function openAnnouncement(announcementId) {
+  if (!announcementId) return;
+  showAnnouncementModal.value = true;
+  announcementLoading.value = true;
+  announcementDetail.value = null;
+  try {
+    const { data } = await notificationsAPI.getAnnouncement(announcementId);
+    announcementDetail.value = data;
+  } catch (e) {
+    announcementDetail.value = null;
+  } finally {
+    announcementLoading.value = false;
+  }
+}
+
+async function openAnnouncementFromNotif(notif) {
+  await notifStore.markAsRead(notif.id);
+  await openAnnouncement(notif.ref_id);
+}
+
+function closeAnnouncementModal() {
+  showAnnouncementModal.value = false;
+  announcementDetail.value = null;
+}
+
+async function handleRouteQuery() {
+  const announcementId = route.query.announcement;
+  if (announcementId) {
+    await openAnnouncement(Number(announcementId));
+  }
+}
+
+onMounted(async () => {
+  await notifStore.init();
+  await notifStore.fetchNotifications();
+  await handleRouteQuery();
 });
 
 onUnmounted(() => {
@@ -649,5 +733,146 @@ onUnmounted(() => {
 .page-info {
   font-size: 13px;
   color: #888;
+}
+
+.view-btn {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  font-size: 13px;
+}
+
+.view-btn:hover {
+  background: var(--primary-color);
+  color: #fff;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.announcement-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: scaleIn 0.2s ease;
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.am-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-bottom: 1px solid #fcd34d;
+}
+
+.am-badge {
+  font-size: 15px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.am-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: rgba(0,0,0,0.08);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.am-close:hover {
+  background: rgba(0,0,0,0.15);
+  color: #333;
+}
+
+.am-body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.am-title {
+  margin: 0 0 16px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  line-height: 1.4;
+}
+
+.am-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.am-priority {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.priority-low { background: #e5e7eb; color: #374151; }
+.priority-normal { background: #dbeafe; color: #1e40af; }
+.priority-high { background: #fee2e2; color: #991b1b; }
+.priority-urgent { background: #ef4444; color: #fff; }
+
+.am-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.am-author {
+  font-size: 12px;
+  color: #888;
+  margin-left: auto;
+}
+
+.am-content {
+  font-size: 15px;
+  color: #444;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sm-spinner {
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+  margin: 20px auto 0;
 }
 </style>

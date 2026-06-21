@@ -153,27 +153,25 @@ export const useNotificationStore = defineStore('notification', {
 
       switch (notif.type) {
         case 'annotation_reply':
-        case 'annotation':
           if (extra.versionId) {
             route = { path: `/versions/${extra.versionId}` };
           }
           break;
         case 'task_assigned':
         case 'task_comment':
-        case 'task':
           if (notif.ref_id || extra.taskId) {
             route = { path: `/tasks`, query: { highlight: notif.ref_id || extra.taskId } };
           }
           break;
         case 'review_result':
-        case 'submission':
-          if (notif.ref_id) {
-            route = { path: `/submission/${notif.ref_id}` };
+          if (extra.approvedVersionId) {
+            route = { path: `/versions/${extra.approvedVersionId}` };
+          } else if (notif.ref_id) {
+            route = { path: `/admin`, query: { tab: 'submissions', submissionId: notif.ref_id } };
           }
           break;
         case 'system_announcement':
-        case 'announcement':
-          route = { path: `/notifications`, query: { tab: 'announcements', id: notif.ref_id } };
+          route = { path: `/notifications`, query: { announcement: notif.ref_id } };
           break;
       }
 

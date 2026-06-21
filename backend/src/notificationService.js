@@ -133,7 +133,7 @@ function notifyTaskComment({ taskId, taskTitle, commentUserId, commentUserName }
   });
 }
 
-function notifyReviewResult({ submissionId, submissionVersion, status, reviewNote, reviewerId, submitterName, submitterContact }) {
+function notifyReviewResult({ submissionId, submissionVersion, status, reviewNote, reviewerId, submitterName, submitterContact, approvedVersionId }) {
   const submitter = db.prepare(`
     SELECT u.id FROM users u
     WHERE u.username = ? OR u.display_name = ? OR u.email = ?
@@ -147,6 +147,11 @@ function notifyReviewResult({ submissionId, submissionVersion, status, reviewNot
     ? `版本「${submissionVersion}」已通过审核，感谢您的贡献！`
     : `版本「${submissionVersion}」未通过审核${reviewNote ? '，审核意见：' + reviewNote : ''}`;
 
+  const extraData = { submissionId, status, reviewNote };
+  if (approvedVersionId) {
+    extraData.approvedVersionId = approvedVersionId;
+  }
+
   return createNotification({
     userId: submitter.id,
     senderId: reviewerId,
@@ -155,7 +160,7 @@ function notifyReviewResult({ submissionId, submissionVersion, status, reviewNot
     content,
     refType: 'submission',
     refId: submissionId,
-    extraData: { submissionId, status, reviewNote }
+    extraData
   });
 }
 

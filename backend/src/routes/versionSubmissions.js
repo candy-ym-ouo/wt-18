@@ -235,7 +235,8 @@ async function routes(fastify) {
       reviewNote: review_note,
       reviewerId: req.user.id,
       submitterName: submission.submitter_name,
-      submitterContact: submission.submitter_contact
+      submitterContact: submission.submitter_contact,
+      approvedVersionId: versionId
     });
 
     return { ok: true, version_id: versionId, entry_id: targetEntryId, message: '审核通过，已创建正式版本' };

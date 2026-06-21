@@ -80,14 +80,41 @@
       </div>
     </div>
 
+    <div v-if="showAnnouncementModal" class="am-backdrop" @click.self="closeAnnouncementModal">
+      <div class="am-modal">
+        <div class="am-header">
+          <div class="am-badge">📢 系统公告</div>
+          <button class="am-close" @click="closeAnnouncementModal">×</button>
+        </div>
+        <div class="am-body" v-if="announcementLoading">
+          <div class="mini-spinner"></div>
+          <div style="text-align:center;color:#999;margin-top:8px;">加载中...</div>
+        </div>
+        <div class="am-body" v-else-if="announcementDetail">
+          <h3 class="am-title">{{ announcementDetail.title }}</h3>
+          <div class="am-meta">
+            <span class="am-priority" :class="'priority-' + announcementDetail.priority">
+              {{ priorityLabel(announcementDetail.priority) }}
+            </span>
+            <span class="am-time">{{ announcementDetail.created_at }}</span>
+          </div>
+          <div class="am-content">{{ announcementDetail.content }}</div>
+        </div>
+        <div class="am-body" v-else>
+          <div style="text-align:center;color:#999;padding:20px;">公告不存在或已删除</div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="showDropdown" class="backdrop" @click="showDropdown = false"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useNotificationStore } from '../stores/notification';
+import { notificationsAPI } from '../api';
 
 const router = useRouter();
 const notifStore = useNotificationStore();
@@ -95,6 +122,9 @@ const notifStore = useNotificationStore();
 const showDropdown = ref(false);
 const activeTab = ref('all');
 const loading = ref(false);
+const showAnnouncementModal = ref(false);
+const announcementDetail = ref(null);
+const announcementLoading = ref(false);
 
 const tabs = [
   { value: 'all', label: '全部' },
@@ -145,6 +175,11 @@ function getIconClass(type) {
   return classes[type] || '';
 }
 
+function priorityLabel(p) {
+  const map = { low: '低', normal: '普通', high: '高', urgent: '紧急' };
+  return map[p] || p;
+}
+
 function formatTime(timeStr) {
   if (!timeStr) return '';
   const date = new Date(timeStr);
@@ -184,6 +219,11 @@ function setActiveTab(tab) {
 
 async function handleNotifClick(notif) {
   showDropdown.value = false;
+  if (notif.type === 'system_announcement') {
+    await notifStore.markAsRead(notif.id);
+    await openAnnouncement(notif.ref_id);
+    return;
+  }
   const route = await notifStore.goToNotification(notif);
   if (route) {
     router.push(route);
@@ -192,6 +232,26 @@ async function handleNotifClick(notif) {
 
 async function handleMarkAll() {
   await notifStore.markAllAsRead();
+}
+
+async function openAnnouncement(announcementId) {
+  if (!announcementId) return;
+  showAnnouncementModal.value = true;
+  announcementLoading.value = true;
+  announcementDetail.value = null;
+  try {
+    const { data } = await notificationsAPI.getAnnouncement(announcementId);
+    announcementDetail.value = data;
+  } catch (e) {
+    announcementDetail.value = null;
+  } finally {
+    announcementLoading.value = false;
+  }
+}
+
+function closeAnnouncementModal() {
+  showAnnouncementModal.value = false;
+  announcementDetail.value = null;
 }
 
 onMounted(() => {
@@ -524,5 +584,108 @@ onUnmounted(() => {
 
 .view-all:hover {
   text-decoration: underline;
+}
+
+.am-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.am-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 70vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+}
+
+.am-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-bottom: 1px solid #fcd34d;
+}
+
+.am-badge {
+  font-size: 14px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.am-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(0,0,0,0.08);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.am-close:hover {
+  background: rgba(0,0,0,0.15);
+}
+
+.am-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.am-title {
+  margin: 0 0 12px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  line-height: 1.4;
+}
+
+.am-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.am-priority {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.priority-low { background: #e5e7eb; color: #374151; }
+.priority-normal { background: #dbeafe; color: #1e40af; }
+.priority-high { background: #fee2e2; color: #991b1b; }
+.priority-urgent { background: #ef4444; color: #fff; }
+
+.am-time {
+  font-size: 11px;
+  color: #999;
+}
+
+.am-content {
+  font-size: 14px;
+  color: #444;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>
