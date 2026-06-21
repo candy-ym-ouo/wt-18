@@ -51,7 +51,8 @@ try {
     ['bibliography', require('./routes/bibliography')],
     ['notifications', require('./routes/notifications')],
     ['dataCenter', require('./routes/dataCenter')],
-    ['revisionHistory', require('./routes/revisionHistory')]
+    ['revisionHistory', require('./routes/revisionHistory')],
+    ['search', require('./routes/search')]
   ];
 
   for (const [name, mod] of routeModules) {
