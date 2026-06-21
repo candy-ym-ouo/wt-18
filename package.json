@@ -1,0 +1,12 @@
+{
+  "name": "oldbook-research",
+  "version": "1.0.0",
+  "description": "旧书版本考据社区网站",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "seed": "cd backend && npm run seed",
+    "dev": "node scripts/start.js",
+    "backend": "cd backend && npm start",
+    "frontend": "cd frontend && npm run dev"
+  }
+}
