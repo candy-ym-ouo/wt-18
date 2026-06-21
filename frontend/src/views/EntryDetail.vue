@@ -51,13 +51,14 @@
       <button class="btn" :disabled="compareIds.length < 2" @click="goCompare">开始对照 ({{ compareIds.length }})</button>
     </div>
 
-    <h3 class="page-title" style="font-size:20px;margin-top:24px;">📜 修订历史</h3>
-    <RevisionHistory
-      entity-type="entry"
-      :entity-id="entryId"
-      :user="currentUser"
-      @rollback="onRollback"
-    />
+    <div style="margin-top:24px;">
+      <RevisionHistory
+        entity-type="entry"
+        :entity-id="entryId"
+        :user="currentUser"
+        @rollback="onRollback"
+      />
+    </div>
 
     <h3 class="page-title" style="font-size:20px;margin-top:24px;">引用关系</h3>
     <div class="grid cols-2">

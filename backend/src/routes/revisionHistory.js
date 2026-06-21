@@ -1,16 +1,25 @@
-const { db } = require('../db');
+const { db, createRevision } = require('../db');
 const { authenticate, requirePermission } = require('../auth');
 
 const ENTITY_CONFIG = {
   entry: {
     table: 'entries',
     fields: ['title', 'author', 'dynasty', 'summary', 'cover_url'],
-    label: '词条'
+    label: '词条',
+    hasUpdatedAt: true,
+    fieldTypes: {
+      title: 'text', author: 'text', dynasty: 'text', summary: 'text', cover_url: 'text'
+    }
   },
   version: {
     table: 'versions',
     fields: ['version_name', 'publisher', 'pub_year', 'pages', 'isbn', 'description', 'full_text'],
-    label: '版本'
+    label: '版本',
+    hasUpdatedAt: true,
+    fieldTypes: {
+      version_name: 'text', publisher: 'text', pub_year: 'text',
+      pages: 'integer', isbn: 'text', description: 'text', full_text: 'text'
+    }
   }
 };
 
@@ -79,20 +88,37 @@ async function routes(fastify) {
       err.statusCode = 404;
       throw err;
     }
-    db.prepare(`UPDATE ${config.table} SET ${revision.field_name} = ?, updated_at = datetime('now','localtime') WHERE id = ?`)
-      .run(revision.old_value, revision.entity_id);
 
-    const { createRevision } = require('../db');
+    const fieldType = config.fieldTypes[revision.field_name] || 'text';
+    let restoredValue = revision.old_value;
+    if (fieldType === 'integer') {
+      if (restoredValue === null || restoredValue === '' || restoredValue === undefined) {
+        restoredValue = null;
+      } else {
+        restoredValue = Number(restoredValue);
+      }
+    }
+
+    let updateSql;
+    const params = [restoredValue];
+    if (config.hasUpdatedAt) {
+      updateSql = `UPDATE ${config.table} SET ${revision.field_name} = ?, updated_at = datetime('now','localtime') WHERE id = ?`;
+    } else {
+      updateSql = `UPDATE ${config.table} SET ${revision.field_name} = ? WHERE id = ?`;
+    }
+    params.push(revision.entity_id);
+    db.prepare(updateSql).run(...params);
+
     createRevision(
       revision.entity_type,
       revision.entity_id,
       revision.field_name,
       currentEntity[revision.field_name],
-      revision.old_value,
+      restoredValue,
       req.user
     );
 
-    return { ok: true, restored_value: revision.old_value };
+    return { ok: true, restored_value: restoredValue };
   });
 
   fastify.get('/api/revisions/snapshot/:entityType/:entityId', {

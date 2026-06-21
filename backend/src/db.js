@@ -52,6 +52,7 @@ function initSchema() {
       description TEXT,
       full_text TEXT,
       created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
       FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
     );
 
@@ -427,6 +428,17 @@ function initSchema() {
     }
   } catch (e) {
     console.warn('⚠️ 用户表迁移跳过:', e.message);
+  }
+
+  try {
+    const verCols = db.prepare('PRAGMA table_info(versions)').all().map(c => c.name);
+    if (!verCols.includes('updated_at')) {
+      db.exec(`ALTER TABLE versions ADD COLUMN updated_at TEXT DEFAULT (datetime('now','localtime'))`);
+      db.exec(`UPDATE versions SET updated_at = created_at WHERE updated_at IS NULL`);
+      console.log('🔄 版本表 updated_at 字段升级完成');
+    }
+  } catch (e) {
+    console.warn('⚠️ 版本表迁移跳过:', e.message);
   }
 }
 

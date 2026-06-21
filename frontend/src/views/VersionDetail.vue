@@ -84,13 +84,14 @@
       <p v-else class="meta">暂无批注，欢迎首发你的考据见解！</p>
     </div>
 
-    <h3 class="page-title" style="font-size:18px;margin-top:24px;">📜 修订历史</h3>
-    <RevisionHistory
-      entity-type="version"
-      :entity-id="versionId"
-      :user="currentUser"
-      @rollback="onRollback"
-    />
+    <div style="margin-top:24px;">
+      <RevisionHistory
+        entity-type="version"
+        :entity-id="versionId"
+        :user="currentUser"
+        @rollback="onRollback"
+      />
+    </div>
 
     <h3 class="page-title" style="font-size:18px;margin-top:24px;">🔬 校勘结果</h3>
     <div class="card">
