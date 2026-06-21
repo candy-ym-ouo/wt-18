@@ -1,6 +1,91 @@
 import axios from 'axios';
 
+const TOKEN_KEY = 'oldbook_token';
+
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
 const api = axios.create({ baseURL: '' });
+
+api.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      setToken(null);
+      if (window && window.location && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const ROLES = {
+  ADMIN: 'admin',
+  EDITOR: 'editor',
+  VIEWER: 'viewer'
+};
+
+export const ROLE_LABELS = {
+  [ROLES.ADMIN]: '管理员',
+  [ROLES.EDITOR]: '编辑',
+  [ROLES.VIEWER]: '访问学者'
+};
+
+export const ROLE_LEVELS = {
+  [ROLES.ADMIN]: 3,
+  [ROLES.EDITOR]: 2,
+  [ROLES.VIEWER]: 1
+};
+
+export function hasRole(user, ...roles) {
+  if (!user || !user.role) return false;
+  return roles.includes(user.role);
+}
+
+export function hasRoleLevel(user, minRole) {
+  if (!user || !user.role) return false;
+  return (ROLE_LEVELS[user.role] || 0) >= (ROLE_LEVELS[minRole] || 999);
+}
+
+export function canEditUser(currentUser, targetUser) {
+  if (!currentUser || !targetUser) return false;
+  const curLevel = ROLE_LEVELS[currentUser.role] || 0;
+  const tgtLevel = ROLE_LEVELS[targetUser.role] || 0;
+  return curLevel > tgtLevel;
+}
+
+export function handleApiError(error, fallbackMsg = '操作失败') {
+  const data = error?.response?.data;
+  if (data && data.error) return data.error;
+  if (data && data.message) return data.message;
+  if (error.message) return error.message;
+  return fallbackMsg;
+}
+
+export const authAPI = {
+  login: (username, password) => api.post('/api/auth/login', { username, password }),
+  register: (data) => api.post('/api/auth/register', data),
+  me: () => api.get('/api/auth/me'),
+  changePassword: (oldPassword, newPassword) =>
+    api.put('/api/auth/change-password', { oldPassword, newPassword }),
+  roles: () => api.get('/api/auth/roles'),
+  logout: () => { setToken(null); }
+};
 
 export const entriesAPI = {
   list: () => api.get('/api/entries'),
@@ -45,7 +130,15 @@ export const adminAPI = {
   entries: () => api.get('/api/admin/entries'),
   versions: () => api.get('/api/admin/versions'),
   users: () => api.get('/api/admin/users'),
+  user: (id) => api.get(`/api/admin/users/${id}`),
+  createUser: (data) => api.post('/api/admin/users', data),
+  updateUser: (id, data) => api.put(`/api/admin/users/${id}`, data),
+  resetPassword: (id, newPassword) =>
+    api.put(`/api/admin/users/${id}/reset-password`, { newPassword }),
+  toggleUserStatus: (id) => api.put(`/api/admin/users/${id}/toggle-status`),
+  removeUser: (id) => api.delete(`/api/admin/users/${id}`),
   allEntries: () => api.get('/api/admin/all-entries')
 };
 
+export { getToken, setToken };
 export default api;

@@ -1,4 +1,5 @@
-const db = require('../db');
+const { db } = require('../db');
+const { authenticate, requirePermission } = require('../auth');
 
 async function routes(fastify) {
   fastify.get('/api/entries', async () => {
@@ -22,7 +23,9 @@ async function routes(fastify) {
     return { ...entry, versions };
   });
 
-  fastify.post('/api/entries', async (req) => {
+  fastify.post('/api/entries', {
+    preHandler: [authenticate(), requirePermission('entries:write')]
+  }, async (req) => {
     const { title, author, dynasty, summary, cover_url } = req.body;
     const info = db.prepare(`
       INSERT INTO entries (title, author, dynasty, summary, cover_url)
@@ -31,7 +34,9 @@ async function routes(fastify) {
     return { id: info.lastInsertRowid };
   });
 
-  fastify.put('/api/entries/:id', async (req) => {
+  fastify.put('/api/entries/:id', {
+    preHandler: [authenticate(), requirePermission('entries:write')]
+  }, async (req) => {
     const id = Number(req.params.id);
     const { title, author, dynasty, summary, cover_url } = req.body;
     db.prepare(`
@@ -42,7 +47,9 @@ async function routes(fastify) {
     return { ok: true };
   });
 
-  fastify.delete('/api/entries/:id', async (req) => {
+  fastify.delete('/api/entries/:id', {
+    preHandler: [authenticate(), requirePermission('entries:write')]
+  }, async (req) => {
     const id = Number(req.params.id);
     db.prepare('DELETE FROM entries WHERE id = ?').run(id);
     return { ok: true };

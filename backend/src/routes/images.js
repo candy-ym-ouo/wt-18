@@ -1,8 +1,9 @@
-const db = require('../db');
+const { db } = require('../db');
 const path = require('path');
 const fs = require('fs');
 const { pipeline } = require('stream');
 const { promisify } = require('util');
+const { authenticate, requirePermission } = require('../auth');
 const pump = promisify(pipeline);
 
 async function routes(fastify) {
@@ -10,7 +11,9 @@ async function routes(fastify) {
     return db.prepare('SELECT * FROM images WHERE version_id = ? ORDER BY page_number, id').all(Number(req.params.versionId));
   });
 
-  fastify.post('/api/versions/:versionId/images', async (req, reply) => {
+  fastify.post('/api/versions/:versionId/images', {
+    preHandler: [authenticate(), requirePermission('images:write')]
+  }, async (req, reply) => {
     const versionId = Number(req.params.versionId);
     const version = db.prepare('SELECT id FROM versions WHERE id = ?').get(versionId);
     if (!version) {
@@ -45,7 +48,9 @@ async function routes(fastify) {
     return { id: info.lastInsertRowid, filename, url: `/uploads/${filename}` };
   });
 
-  fastify.delete('/api/images/:id', async (req) => {
+  fastify.delete('/api/images/:id', {
+    preHandler: [authenticate(), requirePermission('images:write')]
+  }, async (req) => {
     const id = Number(req.params.id);
     const img = db.prepare('SELECT filename FROM images WHERE id = ?').get(id);
     if (img) {

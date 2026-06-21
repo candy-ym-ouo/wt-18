@@ -1,4 +1,5 @@
-const db = require('./db');
+const { db } = require('./db');
+const { hashPassword, ROLES } = require('./auth');
 const path = require('path');
 const fs = require('fs');
 
@@ -23,10 +24,19 @@ function seed() {
   const insertRef = db.prepare(`
     INSERT INTO refs (from_entry_id, to_entry_id, relation_type, note) VALUES (?, ?, ?, ?)
   `);
-  const insertUser = db.prepare(`INSERT INTO users (username, role) VALUES (?, ?)`);
+  const insertUser = db.prepare(`
+    INSERT INTO users (username, password_hash, email, display_name, role)
+    VALUES (?, ?, ?, ?, ?)
+  `);
 
-  insertUser.run('admin', 'admin');
-  insertUser.run('editor01', 'editor');
+  insertUser.run('admin', hashPassword('admin123'), 'admin@oldbook.example', '平台管理员', ROLES.ADMIN);
+  insertUser.run('editor01', hashPassword('editor123'), 'editor01@oldbook.example', '资深编辑', ROLES.EDITOR);
+  insertUser.run('viewer01', hashPassword('viewer123'), 'viewer01@oldbook.example', '访问学者', ROLES.VIEWER);
+
+  console.log('👤 初始学者账号已创建：');
+  console.log('   - 管理员 admin / admin123');
+  console.log('   - 编辑 editor01 / editor123');
+  console.log('   - 读者 viewer01 / viewer123');
 
   const e1 = insertEntry.run(
     '红楼梦',
@@ -88,11 +98,11 @@ function seed() {
   insertImage.run(v1, 'sample-4.jpg', '程甲本卷首插图', 1);
   insertImage.run(v5, 'sample-5.jpg', '万历本西门庆画像', 3);
 
-  insertAnnotation.run(v3, '红学爱好者', '女娲氏炼石补天', '补天神话是全书的隐喻框架，顽石被弃象征作者的"无材补天"之叹。', null);
-  insertAnnotation.run(v3, '考据派A', '庚辰秋月定本', '庚辰年即乾隆二十五年（1760），曹雪芹尚在世，此本可能接近作者最后手定之稿。', null);
-  insertAnnotation.run(v4, '脂批研究者', '甲戌抄阅再评', '甲戌本多出的"凡例"部分极为珍贵，是理解作者创作主旨的第一手材料。', null);
-  insertAnnotation.run(v1, '版本学者', '程甲本', '程伟元序中称"爰为竭力搜罗，自藏书家甚至故纸堆中无不留心"，可见程高整理确实做了一番辑佚工作。', null);
-  insertAnnotation.run(v5, '小说史研究者', '二八佳人体似酥', '此诗引自吕岩《警世》，体现了明代"三教合一"背景下的劝诫主题。', null);
+  insertAnnotation.run(v3, '资深编辑', '女娲氏炼石补天', '补天神话是全书的隐喻框架，顽石被弃象征作者的"无材补天"之叹。', null);
+  insertAnnotation.run(v3, '资深编辑', '庚辰秋月定本', '庚辰年即乾隆二十五年（1760），曹雪芹尚在世，此本可能接近作者最后手定之稿。', null);
+  insertAnnotation.run(v4, '资深编辑', '甲戌抄阅再评', '甲戌本多出的"凡例"部分极为珍贵，是理解作者创作主旨的第一手材料。', null);
+  insertAnnotation.run(v1, '资深编辑', '程甲本', '程伟元序中称"爰为竭力搜罗，自藏书家甚至故纸堆中无不留心"，可见程高整理确实做了一番辑佚工作。', null);
+  insertAnnotation.run(v5, '资深编辑', '二八佳人体似酥', '此诗引自吕岩《警世》，体现了明代"三教合一"背景下的劝诫主题。', null);
 
   insertRef.run(e1, e2, '异名', '程高本将《石头记》改名为《红楼梦》');
   insertRef.run(e1, e3, '承袭', '《红楼梦》在人物设置、叙事手法上深受《金瓶梅》影响');
@@ -104,6 +114,7 @@ function seed() {
   console.log(`   - 图片：${db.prepare('SELECT COUNT(*) FROM images').get()['COUNT(*)']} 张`);
   console.log(`   - 批注：${db.prepare('SELECT COUNT(*) FROM annotations').get()['COUNT(*)']} 条`);
   console.log(`   - 引用：${db.prepare('SELECT COUNT(*) FROM refs').get()['COUNT(*)']} 条`);
+  console.log(`   - 学者：${db.prepare('SELECT COUNT(*) FROM users').get()['COUNT(*)']} 位`);
 }
 
 seed();

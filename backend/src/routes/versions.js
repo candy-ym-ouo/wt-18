@@ -1,4 +1,5 @@
-const db = require('../db');
+const { db } = require('../db');
+const { authenticate, requirePermission } = require('../auth');
 
 async function routes(fastify) {
   fastify.get('/api/versions/:id', async (req) => {
@@ -24,7 +25,9 @@ async function routes(fastify) {
     return db.prepare(`SELECT * FROM versions WHERE id IN (${ids.join(',')})`).all();
   });
 
-  fastify.post('/api/versions', async (req) => {
+  fastify.post('/api/versions', {
+    preHandler: [authenticate(), requirePermission('versions:write')]
+  }, async (req) => {
     const { entry_id, version_name, publisher, pub_year, pages, isbn, description, full_text } = req.body;
     const info = db.prepare(`
       INSERT INTO versions (entry_id, version_name, publisher, pub_year, pages, isbn, description, full_text)
@@ -33,7 +36,9 @@ async function routes(fastify) {
     return { id: info.lastInsertRowid };
   });
 
-  fastify.put('/api/versions/:id', async (req) => {
+  fastify.put('/api/versions/:id', {
+    preHandler: [authenticate(), requirePermission('versions:write')]
+  }, async (req) => {
     const id = Number(req.params.id);
     const { version_name, publisher, pub_year, pages, isbn, description, full_text } = req.body;
     db.prepare(`
@@ -43,7 +48,9 @@ async function routes(fastify) {
     return { ok: true };
   });
 
-  fastify.delete('/api/versions/:id', async (req) => {
+  fastify.delete('/api/versions/:id', {
+    preHandler: [authenticate(), requirePermission('versions:write')]
+  }, async (req) => {
     const id = Number(req.params.id);
     db.prepare('DELETE FROM versions WHERE id = ?').run(id);
     return { ok: true };

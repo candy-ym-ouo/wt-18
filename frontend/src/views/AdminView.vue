@@ -8,12 +8,14 @@
       <div class="stat-card"><div class="num">{{ stats.images }}</div><div class="label">图片数</div></div>
       <div class="stat-card"><div class="num">{{ stats.annotations }}</div><div class="label">批注数</div></div>
       <div class="stat-card"><div class="num">{{ stats.references }}</div><div class="label">引用数</div></div>
+      <div class="stat-card"><div class="num">{{ stats.users || 0 }}</div><div class="label">学者数</div></div>
     </div>
 
-    <div style="display:flex;gap:12px;margin-bottom:16px;">
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
       <button :class="['btn', tab==='entries'?'':'secondary']" @click="tab='entries'">词条管理</button>
       <button :class="['btn', tab==='versions'?'':'secondary']" @click="tab='versions'">版本管理</button>
       <button :class="['btn', tab==='refs'?'':'secondary']" @click="tab='refs'">引用关系</button>
+      <button v-if="userStore.isAdmin || canManageUsers" :class="['btn', tab==='users'?'':'secondary']" @click="tab='users'">学者管理</button>
     </div>
 
     <div v-if="tab==='entries'" class="card">
@@ -86,6 +88,48 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div v-if="tab==='users'" class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <h3 style="color:var(--primary-dark);">学者账号管理</h3>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input v-model="userSearch" placeholder="搜索用户名/邮箱..." style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
+          <button v-if="canCreateUser" class="btn sm" @click="openUserModal()">+ 新建学者</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>用户名</th><th>显示名</th><th>邮箱</th><th>角色</th><th>状态</th><th>最近登录</th><th>注册时间</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="u in filteredUsers" :key="u.id">
+            <td>{{ u.id }}</td>
+            <td><strong>{{ u.username }}</strong></td>
+            <td>{{ u.displayName || '-' }}</td>
+            <td class="meta">{{ u.email || '-' }}</td>
+            <td><span class="role-tag" :class="roleTagClass(u.role)">{{ roleLabel(u.role) }}</span></td>
+            <td>
+              <span class="status-tag" :class="u.status === 'active' ? 'status-active' : 'status-disabled'">
+                {{ u.status === 'active' ? '正常' : '已禁用' }}
+              </span>
+            </td>
+            <td class="meta">{{ u.last_login_at || '-' }}</td>
+            <td class="meta">{{ u.created_at }}</td>
+            <td>
+              <div class="actions">
+                <button v-if="userStore.canEditUser(u)" class="btn sm secondary" @click="openUserModal(u)">编辑</button>
+                <button v-if="userStore.canEditUser(u) && u.id !== userStore.user.id" class="btn sm" :class="u.status==='active' ? 'warning' : 'success'" @click="toggleUserStatus(u)">
+                  {{ u.status === 'active' ? '禁用' : '恢复' }}
+                </button>
+                <button v-if="userStore.canEditUser(u)" class="btn sm secondary" @click="openResetPwdModal(u)">重置密码</button>
+                <button v-if="userStore.canEditUser(u) && u.id !== userStore.user.id" class="btn sm danger" @click="delUser(u)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="filteredUsers.length === 0" style="padding:30px;text-align:center;color:#999;">
+        暂无匹配的学者账号
+      </div>
     </div>
 
     <div v-if="showEntryModal" class="modal-overlay" @click.self="showEntryModal=false">
@@ -195,15 +239,81 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showUserModal" class="modal-overlay" @click.self="showUserModal=false">
+      <div class="modal">
+        <h3>{{ editingUser.id ? '编辑学者' : '新建学者' }}</h3>
+        <div class="form-group">
+          <label>用户名 *</label>
+          <input v-model="editingUser.username" :disabled="!!editingUser.id" :style="editingUser.id ? {background:'#f5f5f5'} : {}" />
+        </div>
+        <div v-if="!editingUser.id" class="form-group">
+          <label>初始密码 *</label>
+          <input v-model="editingUser.password" type="password" placeholder="至少6位" />
+        </div>
+        <div class="form-group">
+          <label>显示名</label>
+          <input v-model="editingUser.displayName" />
+        </div>
+        <div class="form-group">
+          <label>邮箱</label>
+          <input v-model="editingUser.email" type="email" />
+        </div>
+        <div class="form-group">
+          <label>角色</label>
+          <select v-model="editingUser.role">
+            <option v-for="r in assignableRoles" :key="r.value" :value="r.value">{{ r.label }}</option>
+          </select>
+        </div>
+        <div v-if="editingUser.id" class="form-group">
+          <label>状态</label>
+          <select v-model="editingUser.status">
+            <option value="active">正常</option>
+            <option value="disabled">已禁用</option>
+          </select>
+        </div>
+        <p v-if="userError" style="color:#dc2626;font-size:13px;">{{ userError }}</p>
+        <div style="text-align:right;">
+          <button class="btn secondary" style="margin-right:8px;" @click="showUserModal=false">取消</button>
+          <button class="btn" @click="saveUser">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showResetPwdModal" class="modal-overlay" @click.self="showResetPwdModal=false">
+      <div class="modal sm-modal">
+        <h3>重置学者密码</h3>
+        <p style="color:#666;font-size:13px;">为「<strong>{{ resetPwdUser?.username }}</strong>」设置新密码：</p>
+        <div class="form-group">
+          <label>新密码 *</label>
+          <input v-model="resetPwdForm.newPassword" type="password" placeholder="至少6位" />
+        </div>
+        <div class="form-group">
+          <label>确认新密码 *</label>
+          <input v-model="resetPwdForm.confirmPassword" type="password" />
+        </div>
+        <p v-if="resetPwdError" style="color:#dc2626;font-size:13px;">{{ resetPwdError }}</p>
+        <p v-if="resetPwdSuccess" style="color:#15803d;font-size:13px;">{{ resetPwdSuccess }}</p>
+        <div style="text-align:right;">
+          <button class="btn secondary" style="margin-right:8px;" @click="showResetPwdModal=false">取消</button>
+          <button class="btn" @click="submitResetPwd" :disabled="resetPwdLoading">
+            {{ resetPwdLoading ? '提交中...' : '重置密码' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
-import { entriesAPI, versionsAPI, referencesAPI, adminAPI } from '../api';
+import { ref, reactive, onMounted, computed } from 'vue';
+import { entriesAPI, versionsAPI, referencesAPI, adminAPI, ROLES, ROLE_LABELS, ROLE_LEVELS, handleApiError } from '../api';
+import { useUserStore } from '../stores/user';
+
+const userStore = useUserStore();
 
 const tab = ref('entries');
-const stats = ref({ entries: 0, versions: 0, images: 0, annotations: 0, references: 0 });
+const stats = ref({ entries: 0, versions: 0, images: 0, annotations: 0, references: 0, users: 0 });
 const entries = ref([]);
 const entriesMin = ref([]);
 const versions = ref([]);
@@ -218,34 +328,98 @@ const editingVersion = reactive({ id: null, entry_id: null, version_name: '', pu
 const showRefModal = ref(false);
 const newRef = reactive({ from_entry_id: null, to_entry_id: null, relation_type: '相关', note: '' });
 
-async function loadAll() {
-  const [s, e, v, em] = await Promise.all([
-    adminAPI.stats(),
-    adminAPI.entries(),
-    adminAPI.versions(),
-    adminAPI.allEntries()
-  ]);
-  stats.value = s.data;
-  entries.value = e.data;
-  versions.value = v.data;
-  entriesMin.value = em.data;
+const users = ref([]);
+const userSearch = ref('');
+const showUserModal = ref(false);
+const editingUser = reactive({ id: null, username: '', password: '', displayName: '', email: '', role: ROLES.VIEWER, status: 'active' });
+const userError = ref('');
 
-  const map = Object.fromEntries(em.data.map(x => [x.id, x.title]));
-  const refsList = [];
-  for (const e of em.data) {
-    const { data } = await referencesAPI.listByEntry(e.id);
-    for (const r of data.outgoing) {
-      r.from_title = map[r.from_entry_id];
-      r.to_title = map[r.to_entry_id];
-      refsList.push(r);
+const showResetPwdModal = ref(false);
+const resetPwdUser = ref(null);
+const resetPwdForm = reactive({ newPassword: '', confirmPassword: '' });
+const resetPwdLoading = ref(false);
+const resetPwdError = ref('');
+const resetPwdSuccess = ref('');
+
+const canManageUsers = computed(() =>
+  userStore.hasRoleLevel(ROLES.EDITOR)
+);
+
+const canCreateUser = computed(() =>
+  userStore.hasRoleLevel(ROLES.EDITOR)
+);
+
+const assignableRoles = computed(() => {
+  const curLevel = ROLE_LEVELS[userStore.role] || 0;
+  return [
+    { value: ROLES.VIEWER, label: '访问学者（viewer）', level: 1 },
+    { value: ROLES.EDITOR, label: '编辑（editor）', level: 2 },
+    { value: ROLES.ADMIN, label: '管理员（admin）', level: 3 }
+  ].filter(r => r.level < curLevel);
+});
+
+const filteredUsers = computed(() => {
+  if (!userSearch.value) return users.value;
+  const q = userSearch.value.toLowerCase();
+  return users.value.filter(u =>
+    u.username.toLowerCase().includes(q) ||
+    (u.displayName && u.displayName.toLowerCase().includes(q)) ||
+    (u.email && u.email.toLowerCase().includes(q))
+  );
+});
+
+function roleLabel(role) {
+  return ROLE_LABELS[role] || role;
+}
+function roleTagClass(role) {
+  return {
+    'role-admin': role === ROLES.ADMIN,
+    'role-editor': role === ROLES.EDITOR,
+    'role-viewer': role === ROLES.VIEWER
+  };
+}
+
+async function loadAll() {
+  try {
+    const [s, e, v, em] = await Promise.all([
+      adminAPI.stats(),
+      adminAPI.entries(),
+      adminAPI.versions(),
+      adminAPI.allEntries()
+    ]);
+    stats.value = s.data;
+    entries.value = e.data;
+    versions.value = v.data;
+    entriesMin.value = em.data;
+
+    const map = Object.fromEntries(em.data.map(x => [x.id, x.title]));
+    const refsList = [];
+    for (const entry of em.data) {
+      const { data } = await referencesAPI.listByEntry(entry.id);
+      for (const r of data.outgoing) {
+        r.from_title = map[r.from_entry_id];
+        r.to_title = map[r.to_entry_id];
+        refsList.push(r);
+      }
     }
+    const seen = new Set();
+    allRefs.value = refsList.filter(r => {
+      const k = `${r.from_entry_id}-${r.to_entry_id}-${r.relation_type}`;
+      if (seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+
+    if (canManageUsers.value) {
+      try {
+        const { data: udata } = await adminAPI.users();
+        users.value = udata;
+      } catch (e2) {
+        // 忽略权限不足
+      }
+    }
+  } catch (e) {
+    alert('加载数据失败: ' + handleApiError(e));
   }
-  const seen = new Set();
-  allRefs.value = refsList.filter(r => {
-    const k = `${r.from_entry_id}-${r.to_entry_id}-${r.relation_type}`;
-    if (seen.has(k)) return false;
-    seen.add(k); return true;
-  });
 }
 
 function openEntryModal(e = null) {
@@ -256,16 +430,24 @@ function openEntryModal(e = null) {
 
 async function saveEntry() {
   if (!editingEntry.title) return alert('请填写书名');
-  if (editingEntry.id) await entriesAPI.update(editingEntry.id, editingEntry);
-  else await entriesAPI.create(editingEntry);
-  showEntryModal.value = false;
-  loadAll();
+  try {
+    if (editingEntry.id) await entriesAPI.update(editingEntry.id, editingEntry);
+    else await entriesAPI.create(editingEntry);
+    showEntryModal.value = false;
+    loadAll();
+  } catch (e) {
+    alert(handleApiError(e, '保存失败'));
+  }
 }
 
 async function delEntry(e) {
   if (!confirm(`确认删除词条《${e.title}》及其所有版本？`)) return;
-  await entriesAPI.remove(e.id);
-  loadAll();
+  try {
+    await entriesAPI.remove(e.id);
+    loadAll();
+  } catch (err) {
+    alert(handleApiError(err, '删除失败'));
+  }
 }
 
 function openVersionModal(v = null) {
@@ -276,16 +458,24 @@ function openVersionModal(v = null) {
 
 async function saveVersion() {
   if (!editingVersion.entry_id || !editingVersion.version_name) return alert('请填写必填项');
-  if (editingVersion.id) await versionsAPI.update(editingVersion.id, editingVersion);
-  else await versionsAPI.create(editingVersion);
-  showVersionModal.value = false;
-  loadAll();
+  try {
+    if (editingVersion.id) await versionsAPI.update(editingVersion.id, editingVersion);
+    else await versionsAPI.create(editingVersion);
+    showVersionModal.value = false;
+    loadAll();
+  } catch (e) {
+    alert(handleApiError(e, '保存失败'));
+  }
 }
 
 async function delVersion(v) {
   if (!confirm(`确认删除版本「${v.version_name}」？`)) return;
-  await versionsAPI.remove(v.id);
-  loadAll();
+  try {
+    await versionsAPI.remove(v.id);
+    loadAll();
+  } catch (err) {
+    alert(handleApiError(err, '删除失败'));
+  }
 }
 
 function openRefModal() {
@@ -301,16 +491,167 @@ function openRefModal() {
 async function saveRef() {
   if (!newRef.from_entry_id || !newRef.to_entry_id) return alert('请选择词条');
   if (newRef.from_entry_id === newRef.to_entry_id) return alert('源和目标不能相同');
-  await referencesAPI.create(newRef);
-  showRefModal.value = false;
-  loadAll();
+  try {
+    await referencesAPI.create(newRef);
+    showRefModal.value = false;
+    loadAll();
+  } catch (e) {
+    alert(handleApiError(e, '保存失败'));
+  }
 }
 
 async function delRef(r) {
   if (!confirm('确认删除该引用关系？')) return;
-  await referencesAPI.remove(r.id);
+  try {
+    await referencesAPI.remove(r.id);
+    loadAll();
+  } catch (err) {
+    alert(handleApiError(err, '删除失败'));
+  }
+}
+
+function openUserModal(u = null) {
+  userError.value = '';
+  if (u) {
+    Object.assign(editingUser, {
+      id: u.id,
+      username: u.username,
+      password: '',
+      displayName: u.displayName || u.display_name || '',
+      email: u.email || '',
+      role: u.role,
+      status: u.status
+    });
+  } else {
+    Object.assign(editingUser, {
+      id: null, username: '', password: '',
+      displayName: '', email: '',
+      role: assignableRoles.value[0]?.value || ROLES.VIEWER,
+      status: 'active'
+    });
+  }
+  showUserModal.value = true;
+}
+
+async function saveUser() {
+  userError.value = '';
+  if (!editingUser.id) {
+    if (!editingUser.username || editingUser.username.length < 3) {
+      userError.value = '用户名至少需要3位';
+      return;
+    }
+    if (!editingUser.password || editingUser.password.length < 6) {
+      userError.value = '初始密码至少需要6位';
+      return;
+    }
+    try {
+      await adminAPI.createUser({
+        username: editingUser.username,
+        password: editingUser.password,
+        displayName: editingUser.displayName,
+        email: editingUser.email,
+        role: editingUser.role
+      });
+    } catch (e) {
+      userError.value = handleApiError(e, '创建失败');
+      return;
+    }
+  } else {
+    try {
+      await adminAPI.updateUser(editingUser.id, {
+        displayName: editingUser.displayName,
+        email: editingUser.email,
+        role: editingUser.role,
+        status: editingUser.status
+      });
+    } catch (e) {
+      userError.value = handleApiError(e, '保存失败');
+      return;
+    }
+  }
+  showUserModal.value = false;
   loadAll();
+}
+
+async function toggleUserStatus(u) {
+  const action = u.status === 'active' ? '禁用' : '恢复';
+  if (!confirm(`确认${action}学者「${u.username}」的账号？`)) return;
+  try {
+    await adminAPI.toggleUserStatus(u.id);
+    loadAll();
+  } catch (e) {
+    alert(handleApiError(e, '操作失败'));
+  }
+}
+
+async function delUser(u) {
+  if (!confirm(`确认删除学者「${u.username}」的账号？此操作不可撤销！`)) return;
+  try {
+    await adminAPI.removeUser(u.id);
+    loadAll();
+  } catch (e) {
+    alert(handleApiError(e, '删除失败'));
+  }
+}
+
+function openResetPwdModal(u) {
+  resetPwdUser.value = u;
+  resetPwdForm.newPassword = '';
+  resetPwdForm.confirmPassword = '';
+  resetPwdError.value = '';
+  resetPwdSuccess.value = '';
+  showResetPwdModal.value = true;
+}
+
+async function submitResetPwd() {
+  resetPwdError.value = '';
+  resetPwdSuccess.value = '';
+  if (resetPwdForm.newPassword.length < 6) {
+    resetPwdError.value = '新密码至少需要6位';
+    return;
+  }
+  if (resetPwdForm.newPassword !== resetPwdForm.confirmPassword) {
+    resetPwdError.value = '两次输入的密码不一致';
+    return;
+  }
+  resetPwdLoading.value = true;
+  try {
+    await adminAPI.resetPassword(resetPwdUser.value.id, resetPwdForm.newPassword);
+    resetPwdSuccess.value = '密码重置成功！';
+    setTimeout(() => (showResetPwdModal.value = false), 1000);
+  } catch (e) {
+    resetPwdError.value = handleApiError(e, '重置失败');
+  } finally {
+    resetPwdLoading.value = false;
+  }
 }
 
 onMounted(loadAll);
 </script>
+
+<style>
+.role-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  display: inline-block;
+}
+.role-admin { background: rgba(239,68,68,0.1); color: #b91c1c; }
+.role-editor { background: rgba(245,158,11,0.1); color: #a16207; }
+.role-viewer { background: rgba(34,197,94,0.1); color: #15803d; }
+.status-tag {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  display: inline-block;
+}
+.status-active { background: rgba(34,197,94,0.1); color: #15803d; }
+.status-disabled { background: rgba(107,114,128,0.1); color: #4b5563; }
+.btn.warning { background: #f59e0b; }
+.btn.warning:hover { background: #d97706; }
+.btn.success { background: #22c55e; }
+.btn.success:hover { background: #16a34a; }
+.sm-modal { max-width: 420px; }
+</style>

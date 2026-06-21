@@ -20,8 +20,14 @@ try {
   process.exit(1);
 }
 
+const { authenticate, requirePermission, requireRole, requireRoleLevel, ROLES } = require('./auth');
+
 try {
-  fastify.register(require('@fastify/cors'), { origin: true });
+  fastify.register(require('@fastify/cors'), {
+    origin: true,
+    credentials: true,
+    exposedHeaders: ['Authorization']
+  });
   fastify.register(require('@fastify/multipart'), {
     limits: { fileSize: 10 * 1024 * 1024 }
   });
@@ -31,6 +37,7 @@ try {
   });
 
   const routeModules = [
+    ['auth', require('./routes/auth')],
     ['entries', require('./routes/entries')],
     ['versions', require('./routes/versions')],
     ['images', require('./routes/images')],
@@ -49,7 +56,7 @@ try {
     }
   }
 
-  fastify.get('/', () => ({ name: '旧书版本考据社区 - 后端 API', version: '1.0.0', docs: '/api/entries' }));
+  fastify.get('/', () => ({ name: '旧书版本考据社区 - 后端 API', version: '1.0.0', docs: '/api/entries', auth: '/api/auth/login' }));
   fastify.get('/api/health', () => ({ status: 'ok', time: new Date().toISOString() }));
 } catch (e) {
   console.error('❌ 插件注册失败:', e.message);
@@ -64,7 +71,8 @@ const start = async () => {
     console.log('══════════════════════════════════════════════════');
     console.log(`🚀 后端服务已启动:  http://localhost:${port}`);
     console.log(`📚 接口基础地址:   http://localhost:${port}/api`);
-    console.log(`🖼️  静态文件目录:  http://localhost:${port}/uploads/`);
+    console.log(`� 登录接口:       http://localhost:${port}/api/auth/login`);
+    console.log(`�🖼️  静态文件目录:  http://localhost:${port}/uploads/`);
     try {
       const printed = typeof fastify.printRoutes === 'function'
         ? fastify.printRoutes({ commonPrefix: false })
@@ -95,3 +103,5 @@ const start = async () => {
 };
 
 start();
+
+module.exports = { authenticate, requirePermission, requireRole, requireRoleLevel, ROLES };

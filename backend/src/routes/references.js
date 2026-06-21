@@ -1,4 +1,5 @@
-const db = require('../db');
+const { db } = require('../db');
+const { authenticate, requirePermission } = require('../auth');
 
 async function routes(fastify) {
   fastify.get('/api/entries/:entryId/references', async (req) => {
@@ -18,7 +19,9 @@ async function routes(fastify) {
     return { outgoing, incoming };
   });
 
-  fastify.post('/api/references', async (req) => {
+  fastify.post('/api/references', {
+    preHandler: [authenticate(), requirePermission('references:write')]
+  }, async (req) => {
     const { from_entry_id, to_entry_id, relation_type, note } = req.body;
     if (!from_entry_id || !to_entry_id || from_entry_id === to_entry_id) {
       const err = new Error('参数无效');
@@ -32,7 +35,9 @@ async function routes(fastify) {
     return { id: info.lastInsertRowid };
   });
 
-  fastify.delete('/api/references/:id', async (req) => {
+  fastify.delete('/api/references/:id', {
+    preHandler: [authenticate(), requirePermission('references:write')]
+  }, async (req) => {
     db.prepare('DELETE FROM refs WHERE id = ?').run(Number(req.params.id));
     return { ok: true };
   });
