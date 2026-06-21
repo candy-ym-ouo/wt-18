@@ -23,6 +23,31 @@
       </div>
     </div>
 
+    <div v-if="topic.entries && topic.entries.length" style="margin-top:24px;">
+      <h3 style="margin-bottom:16px;color:var(--primary-dark);">
+        <span style="border-left:4px solid var(--primary);padding-left:10px;">专题关联词条</span>
+      </h3>
+      <div class="grid cols-2">
+        <div v-for="te in topic.entries" :key="te.id" class="card entry-ref-card" @click="goEntry(te.entry_id)">
+          <div style="display:flex;gap:12px;">
+            <div v-if="te.entry_cover" style="width:60px;height:80px;flex-shrink:0;border-radius:3px;overflow:hidden;background:#eee;">
+              <img :src="te.entry_cover" style="width:100%;height:100%;object-fit:cover;" />
+            </div>
+            <div v-else style="width:60px;height:80px;flex-shrink:0;border-radius:3px;background:linear-gradient(135deg,#f5e6d3,#d4a574);display:flex;align-items:center;justify-content:center;font-size:24px;">
+              📖
+            </div>
+            <div style="flex:1;min-width:0;">
+              <h4 style="color:var(--primary-dark);margin-bottom:4px;">{{ te.entry_title }}</h4>
+              <p class="meta" style="font-size:13px;margin-bottom:6px;">
+                {{ te.entry_author || '佚名' }}<span v-if="te.entry_dynasty"> · {{ te.entry_dynasty }}</span>
+              </p>
+              <p v-if="te.note" style="font-size:13px;color:#555;line-height:1.6;">{{ te.note }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <h3 style="margin:24px 0 16px;color:var(--primary-dark);">章节目录</h3>
 
     <div v-if="topic.chapters && topic.chapters.length">
@@ -61,6 +86,10 @@ function goChapter(chapterId) {
   router.push(`/topics/${route.params.id}/chapters/${chapterId}`);
 }
 
+function goEntry(entryId) {
+  router.push(`/entries/${entryId}`);
+}
+
 onMounted(async () => {
   try {
     const { data } = await topicsAPI.get(route.params.id);
@@ -95,5 +124,15 @@ onMounted(async () => {
   font-weight: bold;
   font-size: 16px;
   flex-shrink: 0;
+}
+.entry-ref-card {
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 14px 16px;
+}
+.entry-ref-card:hover {
+  background: #fffaf2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(139, 90, 43, 0.1);
 }
 </style>

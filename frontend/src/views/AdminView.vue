@@ -156,6 +156,7 @@
               <div class="actions">
                 <button class="btn sm secondary" @click="openTopicModal(t)">编辑</button>
                 <button class="btn sm secondary" @click="editTopicChapters(t)">章节</button>
+                <button class="btn sm secondary" @click="editTopicEntries(t)">词条</button>
                 <button class="btn sm danger" @click="delTopic(t)">删除</button>
               </div>
             </td>
@@ -219,6 +220,34 @@
         </table>
         <div v-if="chapterEntries.length === 0" style="padding:20px;text-align:center;color:#999;">暂无挂接词条</div>
       </div>
+    </div>
+
+    <div v-if="showTopicEntries" class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <button class="btn sm secondary" @click="showTopicEntries=false">← 返回专题列表</button>
+          <span style="margin-left:12px;font-size:16px;font-weight:bold;color:var(--primary-dark);">{{ currentTopic?.title }} - 专题关联词条</span>
+        </div>
+        <button class="btn sm" @click="openTopicEntryModal('topic')">+ 挂接词条</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>词条名</th><th>备注说明</th><th>排序</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="te in topicEntries" :key="te.id">
+            <td>{{ te.id }}</td>
+            <td><strong>{{ te.entry_title }}</strong></td>
+            <td class="meta">{{ te.note || '-' }}</td>
+            <td>{{ te.sort_order }}</td>
+            <td>
+              <div class="actions">
+                <button class="btn sm secondary" @click="openTopicEntryModal('topic', te)">编辑</button>
+                <button class="btn sm danger" @click="delTopicEntry(te)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="topicEntries.length === 0" style="padding:30px;text-align:center;color:#999;">暂无挂接词条</div>
     </div>
 
     <div v-if="showEntryModal" class="modal-overlay" @click.self="showEntryModal=false">
@@ -527,6 +556,8 @@ const editingChapter = reactive({ id: null, topic_id: null, title: '', subtitle:
 const showChapterEntries = ref(false);
 const currentChapter = ref(null);
 const chapterEntries = ref([]);
+const showTopicEntries = ref(false);
+const topicEntries = ref([]);
 const showTopicEntryModal = ref(false);
 const topicEntryTargetType = ref('chapter');
 const editingTopicEntry = reactive({ id: null, topic_id: null, chapter_id: null, entry_id: null, entry_title: '', note: '', sort_order: 0 });
@@ -872,11 +903,25 @@ async function editTopicChapters(t) {
   currentTopic.value = t;
   showChapterEditor.value = true;
   showChapterEntries.value = false;
+  showTopicEntries.value = false;
   try {
     const { data } = await adminAPI.topicChapters(t.id);
     chapters.value = data;
   } catch (e) {
     alert(handleApiError(e, '加载章节失败'));
+  }
+}
+
+async function editTopicEntries(t) {
+  currentTopic.value = t;
+  showTopicEntries.value = true;
+  showChapterEditor.value = false;
+  showChapterEntries.value = false;
+  try {
+    const { data } = await adminAPI.topic(t.id);
+    topicEntries.value = data.entries || [];
+  } catch (e) {
+    alert(handleApiError(e, '加载词条失败'));
   }
 }
 
@@ -947,6 +992,8 @@ async function saveTopicEntry() {
     showTopicEntryModal.value = false;
     if (topicEntryTargetType.value === 'chapter' && currentChapter.value) {
       editChapterEntries(currentChapter.value);
+    } else if (topicEntryTargetType.value === 'topic' && currentTopic.value) {
+      editTopicEntries(currentTopic.value);
     }
     loadAll();
   } catch (e) {
@@ -960,6 +1007,8 @@ async function delTopicEntry(te) {
     await adminAPI.removeTopicEntry(te.id);
     if (topicEntryTargetType.value === 'chapter' && currentChapter.value) {
       editChapterEntries(currentChapter.value);
+    } else if (topicEntryTargetType.value === 'topic' && currentTopic.value) {
+      editTopicEntries(currentTopic.value);
     }
     loadAll();
   } catch (err) {

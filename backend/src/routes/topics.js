@@ -35,7 +35,7 @@ async function routes(fastify) {
       ORDER BY sort_order ASC, id ASC
     `).all(id);
     const entries = db.prepare(`
-      SELECT te.*, e.title AS entry_title, e.author AS entry_author, e.dynasty AS entry_dynasty
+      SELECT te.*, e.title AS entry_title, e.author AS entry_author, e.dynasty AS entry_dynasty, e.cover_url AS entry_cover
       FROM topic_entries te
       JOIN entries e ON te.entry_id = e.id
       WHERE te.topic_id = ? AND te.chapter_id IS NULL
