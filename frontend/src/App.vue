@@ -8,6 +8,7 @@
         <router-link to="/tasks">任务协作</router-link>
         <router-link to="/compare">版本对照</router-link>
         <router-link to="/graph">引用图谱</router-link>
+        <router-link to="/submission" class="nav-submission">版本征集</router-link>
         <router-link v-if="userStore.canAccessAdmin" to="/admin">后台编辑</router-link>
       </nav>
       <div class="user-area">
@@ -156,6 +157,22 @@ onMounted(() => {
 </script>
 
 <style>
+.nav-submission {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff !important;
+  padding: 6px 14px !important;
+  border-radius: 999px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+.nav-submission:hover {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  transform: translateY(-1px);
+}
+.nav-submission.router-link-active {
+  background: linear-gradient(135deg, #b45309, #92400e);
+}
+
 .user-area {
   display: flex;
   align-items: center;

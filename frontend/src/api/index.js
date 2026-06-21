@@ -175,5 +175,18 @@ export const topicsAPI = {
   getChapter: (topicId, chapterId) => api.get(`/api/topics/${topicId}/chapters/${chapterId}`)
 };
 
+export const submissionsAPI = {
+  statuses: () => api.get('/api/submissions/statuses'),
+  create: (data) => api.post('/api/submissions', data),
+  uploadImage: (id, formData) => api.post(`/api/submissions/${id}/images`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  get: (id) => api.get(`/api/submissions/${id}`),
+  list: (params = {}) => api.get('/api/submissions', { params }),
+  approve: (id, data) => api.post(`/api/submissions/${id}/approve`, data),
+  reject: (id, data) => api.post(`/api/submissions/${id}/reject`, data),
+  remove: (id) => api.delete(`/api/submissions/${id}`)
+};
+
 export { getToken, setToken };
 export default api;

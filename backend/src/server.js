@@ -45,7 +45,8 @@ try {
     ['references', require('./routes/references')],
     ['tasks', require('./routes/tasks')],
     ['topics', require('./routes/topics')],
-    ['admin', require('./routes/admin')]
+    ['admin', require('./routes/admin')],
+    ['versionSubmissions', require('./routes/versionSubmissions')]
   ];
 
   for (const [name, mod] of routeModules) {

@@ -24,7 +24,9 @@ async function routes(fastify) {
       users: db.prepare('SELECT COUNT(*) AS c FROM users').get().c,
       activeUsers: db.prepare('SELECT COUNT(*) AS c FROM users WHERE status = ?').get('active').c,
       topics: db.prepare('SELECT COUNT(*) AS c FROM topics').get().c,
-      chapters: db.prepare('SELECT COUNT(*) AS c FROM chapters').get().c
+      chapters: db.prepare('SELECT COUNT(*) AS c FROM chapters').get().c,
+      submissions: db.prepare('SELECT COUNT(*) AS c FROM version_submissions').get().c,
+      pendingSubmissions: db.prepare('SELECT COUNT(*) AS c FROM version_submissions WHERE status = ?').get('pending').c
     };
   });
 

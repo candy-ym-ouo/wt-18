@@ -11,6 +11,11 @@
       <div class="stat-card"><div class="num">{{ stats.users || 0 }}</div><div class="label">学者数</div></div>
       <div class="stat-card"><div class="num">{{ stats.topics || 0 }}</div><div class="label">专题数</div></div>
       <div class="stat-card"><div class="num">{{ stats.chapters || 0 }}</div><div class="label">章节数</div></div>
+      <div class="stat-card" :class="{ 'pending-alert': stats.pendingSubmissions > 0 }">
+        <div class="num">{{ stats.pendingSubmissions || 0 }}</div>
+        <div class="label">待审核征集</div>
+      </div>
+      <div class="stat-card"><div class="num">{{ stats.submissions || 0 }}</div><div class="label">总征集数</div></div>
     </div>
 
     <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
@@ -18,6 +23,10 @@
       <button :class="['btn', tab==='versions'?'':'secondary']" @click="tab='versions'">版本管理</button>
       <button :class="['btn', tab==='refs'?'':'secondary']" @click="tab='refs'">引用关系</button>
       <button :class="['btn', tab==='topics'?'':'secondary']" @click="tab='topics'">专题专栏</button>
+      <button :class="['btn', tab==='submissions'?'':'secondary']" @click="tab='submissions'">
+        版本征集
+        <span v-if="stats.pendingSubmissions > 0" class="badge">{{ stats.pendingSubmissions }}</span>
+      </button>
       <button v-if="userStore.isAdmin || canManageUsers" :class="['btn', tab==='users'?'':'secondary']" @click="tab='users'">学者管理</button>
     </div>
 
@@ -164,6 +173,170 @@
         </tbody>
       </table>
       <div v-if="topics.length === 0" style="padding:30px;text-align:center;color:#999;">暂无专题</div>
+    </div>
+
+    <div v-if="tab==='submissions'" class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <h3 style="color:var(--primary-dark);">版本征集审核</h3>
+        <div style="display:flex;gap:8px;">
+          <select v-model="submissionFilter" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;" @change="loadSubmissions">
+            <option value="all">全部状态</option>
+            <option value="pending">待审核</option>
+            <option value="approved">已通过</option>
+            <option value="rejected">已拒绝</option>
+          </select>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>词条/书名</th><th>版本名</th><th>提交人</th><th>状态</th><th>图片</th><th>提交时间</th><th>审核人</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="s in submissions" :key="s.id">
+            <td>{{ s.id }}</td>
+            <td><strong>{{ s.entry_title || '（新建）' }}</strong><div v-if="s.entry_author" class="meta" style="font-size:12px;">{{ s.entry_author }}</div></td>
+            <td>{{ s.version_name }}</td>
+            <td>{{ s.submitter_name }}</td>
+            <td><span :class="['status-tag', submissionStatusClass(s.status)]">{{ submissionStatusLabel(s.status) }}</span></td>
+            <td>{{ s.image_count || 0 }}</td>
+            <td class="meta">{{ s.created_at }}</td>
+            <td>{{ s.reviewer_display_name || s.reviewer_name || '-' }}</td>
+            <td>
+              <div class="actions">
+                <button class="btn sm secondary" @click="viewSubmissionDetail(s)">查看</button>
+                <button v-if="s.status === 'pending'" class="btn sm" @click="openReviewModal(s, 'approve')">通过</button>
+                <button v-if="s.status === 'pending'" class="btn sm danger" @click="openReviewModal(s, 'reject')">拒绝</button>
+                <button class="btn sm danger" @click="delSubmission(s)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="submissions.length === 0" style="padding:30px;text-align:center;color:#999;">暂无征集记录</div>
+    </div>
+
+    <div v-if="showSubmissionDetail" class="modal-overlay" @click.self="showSubmissionDetail=false">
+      <div class="modal detail-modal">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3>征集详情</h3>
+          <div style="display:flex;gap:8px;">
+            <button v-if="currentSubmission?.status === 'pending'" class="btn sm" @click="openReviewModal(currentSubmission, 'approve')">通过</button>
+            <button v-if="currentSubmission?.status === 'pending'" class="btn sm danger" @click="openReviewModal(currentSubmission, 'reject')">拒绝</button>
+            <button class="btn sm secondary" @click="showSubmissionDetail=false">关闭</button>
+          </div>
+        </div>
+        <div v-if="currentSubmission">
+          <div class="detail-row">
+            <span class="label">提交编号：</span>
+            <span>#{{ currentSubmission.id }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">提交时间：</span>
+            <span>{{ currentSubmission.created_at }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">状态：</span>
+            <span :class="['status-tag', submissionStatusClass(currentSubmission.status)]">{{ submissionStatusLabel(currentSubmission.status) }}</span>
+          </div>
+          <div class="detail-section">
+            <h4>词条信息</h4>
+            <div class="detail-row"><span class="label">关联词条：</span><span>{{ currentSubmission.entry_title || '（新建）' }}</span></div>
+            <div v-if="currentSubmission.entry_author" class="detail-row"><span class="label">作者：</span><span>{{ currentSubmission.entry_author }}</span></div>
+          </div>
+          <div class="detail-section">
+            <h4>版本信息</h4>
+            <div class="detail-row"><span class="label">版本名：</span><span>{{ currentSubmission.version_name }}</span></div>
+            <div class="detail-row"><span class="label">出版者：</span><span>{{ currentSubmission.publisher || '-' }}</span></div>
+            <div class="detail-row"><span class="label">年代：</span><span>{{ currentSubmission.pub_year || '-' }}</span></div>
+            <div class="detail-row"><span class="label">页数：</span><span>{{ currentSubmission.pages || '-' }}</span></div>
+            <div v-if="currentSubmission.isbn" class="detail-row"><span class="label">ISBN：</span><span>{{ currentSubmission.isbn }}</span></div>
+            <div v-if="currentSubmission.description" class="detail-row"><span class="label">说明：</span><span>{{ currentSubmission.description }}</span></div>
+          </div>
+          <div class="detail-section">
+            <h4>提交人信息</h4>
+            <div class="detail-row"><span class="label">姓名：</span><span>{{ currentSubmission.submitter_name }}</span></div>
+            <div v-if="currentSubmission.submitter_contact" class="detail-row"><span class="label">联系方式：</span><span>{{ currentSubmission.submitter_contact }}</span></div>
+            <div v-if="currentSubmission.submitter_note" class="detail-row"><span class="label">备注：</span><span>{{ currentSubmission.submitter_note }}</span></div>
+          </div>
+          <div v-if="currentSubmission.images && currentSubmission.images.length > 0" class="detail-section">
+            <h4>书影图片</h4>
+            <div class="detail-images">
+              <div v-for="img in currentSubmission.images" :key="img.id" class="detail-image-item">
+                <img :src="'/uploads/' + img.filename" :alt="img.caption" @click="previewImage('/uploads/' + img.filename)" />
+                <div v-if="img.caption" class="image-caption-text">{{ img.caption }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-if="currentSubmission.review_note" class="detail-section">
+            <h4>审核信息</h4>
+            <div class="detail-row"><span class="label">审核人：</span><span>{{ currentSubmission.reviewer_display_name || currentSubmission.reviewer_name || '-' }}</span></div>
+            <div class="detail-row"><span class="label">审核时间：</span><span>{{ currentSubmission.reviewed_at || '-' }}</span></div>
+            <div class="detail-row"><span class="label">审核说明：</span><span>{{ currentSubmission.review_note }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showReviewModal" class="modal-overlay" @click.self="showReviewModal=false">
+      <div class="modal sm-modal">
+        <h3>{{ reviewAction === 'approve' ? '审核通过' : '拒绝提交' }}</h3>
+        <p v-if="reviewAction === 'approve'" style="color:#666;font-size:13px;">
+          确认通过「<strong>{{ reviewSubmission?.version_name }}</strong>」的征集？
+          通过后将创建正式版本。
+        </p>
+        <p v-else style="color:#666;font-size:13px;">
+          确认拒绝「<strong>{{ reviewSubmission?.version_name }}</strong>」的征集？
+        </p>
+
+        <div v-if="reviewAction === 'approve' && !reviewSubmission?.entry_id" class="form-group">
+          <label>词条处理方式</label>
+          <div style="display:flex;gap:16px;margin:8px 0;">
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="radio" v-model="reviewForm.create_new_entry" :value="true" />
+              <span>创建新词条</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="radio" v-model="reviewForm.create_new_entry" :value="false" />
+              <span>选择已有词条</span>
+            </label>
+          </div>
+          <div v-if="reviewForm.create_new_entry" class="grid cols-2">
+            <div class="form-group">
+              <label>书名 *</label>
+              <input v-model="reviewForm.entry_title" />
+            </div>
+            <div class="form-group">
+              <label>作者</label>
+              <input v-model="reviewForm.entry_author" />
+            </div>
+          </div>
+          <div v-else class="form-group">
+            <label>选择词条 *</label>
+            <select v-model="reviewForm.entry_id">
+              <option :value="null">-- 请选择 --</option>
+              <option v-for="e in entriesMin" :key="e.id" :value="e.id">{{ e.title }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>审核说明（选填）</label>
+          <textarea v-model="reviewForm.review_note" rows="3" placeholder="请输入审核说明..."></textarea>
+        </div>
+
+        <p v-if="reviewError" style="color:#dc2626;font-size:13px;">{{ reviewError }}</p>
+        <div style="text-align:right;">
+          <button class="btn secondary" style="margin-right:8px;" @click="showReviewModal=false">取消</button>
+          <button class="btn" :class="reviewAction === 'reject' ? 'danger' : ''" @click="submitReview" :disabled="reviewLoading">
+            {{ reviewLoading ? '提交中...' : (reviewAction === 'approve' ? '确认通过' : '确认拒绝') }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="imagePreview" class="modal-overlay" @click.self="imagePreview=null">
+      <div class="image-preview-modal" @click.self="imagePreview=null">
+        <img :src="imagePreview" alt="预览" />
+        <button class="close-preview" @click="imagePreview=null">×</button>
+      </div>
     </div>
 
     <div v-if="showChapterEditor" class="card">
@@ -530,8 +703,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
-import { entriesAPI, versionsAPI, referencesAPI, adminAPI, ROLES, ROLE_LABELS, ROLE_LEVELS, handleApiError } from '../api';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { entriesAPI, versionsAPI, referencesAPI, adminAPI, ROLES, ROLE_LABELS, ROLE_LEVELS, handleApiError, submissionsAPI } from '../api';
 import { useUserStore } from '../stores/user';
 
 const userStore = useUserStore();
@@ -583,6 +756,24 @@ const resetPwdForm = reactive({ newPassword: '', confirmPassword: '' });
 const resetPwdLoading = ref(false);
 const resetPwdError = ref('');
 const resetPwdSuccess = ref('');
+
+const submissions = ref([]);
+const submissionFilter = ref('all');
+const showSubmissionDetail = ref(false);
+const currentSubmission = ref(null);
+const showReviewModal = ref(false);
+const reviewAction = ref('approve');
+const reviewSubmission = ref(null);
+const reviewForm = reactive({
+  review_note: '',
+  create_new_entry: true,
+  entry_title: '',
+  entry_author: '',
+  entry_id: null
+});
+const reviewLoading = ref(false);
+const reviewError = ref('');
+const imagePreview = ref(null);
 
 const canManageUsers = computed(() =>
   userStore.hasRoleLevel(ROLES.EDITOR)
@@ -754,6 +945,119 @@ async function delRef(r) {
     alert(handleApiError(err, '删除失败'));
   }
 }
+
+async function loadSubmissions() {
+  try {
+    const params = submissionFilter.value !== 'all' ? { status: submissionFilter.value } : {};
+    const { data } = await submissionsAPI.list(params);
+    submissions.value = data.list.map(s => ({
+      ...s,
+      image_count: s.images?.length || 0
+    }));
+  } catch (e) {
+    console.error('加载征集列表失败', e);
+  }
+}
+
+function submissionStatusLabel(status) {
+  const labels = { pending: '待审核', approved: '已通过', rejected: '已拒绝' };
+  return labels[status] || status;
+}
+
+function submissionStatusClass(status) {
+  return {
+    pending: 'status-pending',
+    approved: 'status-active',
+    rejected: 'status-disabled'
+  }[status] || '';
+}
+
+async function viewSubmissionDetail(s) {
+  try {
+    const { data } = await submissionsAPI.get(s.id);
+    currentSubmission.value = data;
+    showSubmissionDetail.value = true;
+  } catch (e) {
+    alert('获取详情失败: ' + handleApiError(e));
+  }
+}
+
+function openReviewModal(s, action) {
+  showSubmissionDetail.value = false;
+  reviewSubmission.value = s;
+  reviewAction.value = action;
+  reviewError.value = '';
+  Object.assign(reviewForm, {
+    review_note: '',
+    create_new_entry: !s.entry_id,
+    entry_title: s.entry_title || '',
+    entry_author: s.entry_author || '',
+    entry_id: s.entry_id || null
+  });
+  showReviewModal.value = true;
+}
+
+async function submitReview() {
+  if (!reviewSubmission.value) return;
+
+  if (reviewAction.value === 'approve' && !reviewSubmission.value.entry_id) {
+    if (reviewForm.create_new_entry && !reviewForm.entry_title.trim()) {
+      reviewError.value = '请填写书名字段';
+      return;
+    }
+    if (!reviewForm.create_new_entry && !reviewForm.entry_id) {
+      reviewError.value = '请选择关联词条';
+      return;
+    }
+  }
+
+  reviewLoading.value = true;
+  reviewError.value = '';
+  try {
+    if (reviewAction.value === 'approve') {
+      const payload = {
+        review_note: reviewForm.review_note,
+        create_new_entry: reviewForm.create_new_entry,
+        entry_title: reviewForm.entry_title,
+        entry_author: reviewForm.entry_author
+      };
+      if (!reviewForm.create_new_entry && reviewForm.entry_id) {
+        payload.entry_id = reviewForm.entry_id;
+      }
+      await submissionsAPI.approve(reviewSubmission.value.id, payload);
+    } else {
+      await submissionsAPI.reject(reviewSubmission.value.id, { review_note: reviewForm.review_note });
+    }
+    showReviewModal.value = false;
+    loadAll();
+    loadSubmissions();
+  } catch (e) {
+    reviewError.value = handleApiError(e, '操作失败');
+  } finally {
+    reviewLoading.value = false;
+  }
+}
+
+async function delSubmission(s) {
+  if (!confirm(`确认删除征集 #${s.id}？`)) return;
+  try {
+    await submissionsAPI.remove(s.id);
+    loadAll();
+    loadSubmissions();
+  } catch (err) {
+    alert(handleApiError(err, '删除失败'));
+  }
+}
+
+function previewImage(url) {
+  imagePreview.value = url;
+}
+
+watch(tab, (newTab) => {
+  if (newTab === 'submissions') {
+    loadSubmissions();
+  }
+});
 
 function openUserModal(u = null) {
   userError.value = '';
@@ -1039,9 +1343,134 @@ onMounted(loadAll);
 }
 .status-active { background: rgba(34,197,94,0.1); color: #15803d; }
 .status-disabled { background: rgba(107,114,128,0.1); color: #4b5563; }
+.status-pending { background: rgba(245, 158, 11, 0.1); color: #a16207; }
 .btn.warning { background: #f59e0b; }
 .btn.warning:hover { background: #d97706; }
 .btn.success { background: #22c55e; }
 .btn.success:hover { background: #16a34a; }
 .sm-modal { max-width: 420px; }
+
+.badge {
+  display: inline-block;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #dc2626;
+  color: #fff;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  margin-left: 4px;
+}
+
+.pending-alert {
+  animation: pulse 2s infinite;
+  border: 2px solid #f59e0b;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+}
+
+.detail-modal {
+  max-width: 700px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.detail-row {
+  display: flex;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.detail-row .label {
+  width: 100px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.detail-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid #f0f0f0;
+}
+
+.detail-section h4 {
+  color: var(--primary-dark);
+  margin-bottom: 12px;
+}
+
+.detail-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.detail-image-item {
+  text-align: center;
+}
+
+.detail-image-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.detail-image-item img:hover {
+  transform: scale(1.05);
+}
+
+.image-caption-text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.image-preview-modal {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.image-preview-modal img {
+  max-width: 100%;
+  max-height: 90vh;
+  border-radius: 8px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.close-preview {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn.danger {
+  background: #dc2626;
+  color: #fff;
+}
+.btn.danger:hover {
+  background: #b91c1c;
+}
 </style>

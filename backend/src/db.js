@@ -18,8 +18,8 @@ const ROLES = {
 
 const ROLE_PERMISSIONS = {
   [ROLES.ADMIN]: ['*'],
-  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write'],
-  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read']
+  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review'],
+  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create']
 };
 
 const ROLE_HIERARCHY = {
@@ -178,6 +178,41 @@ function initSchema() {
       FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
       FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
       FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS version_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entry_id INTEGER,
+      entry_title TEXT,
+      entry_author TEXT,
+      version_name TEXT NOT NULL,
+      publisher TEXT,
+      pub_year TEXT,
+      pages INTEGER,
+      isbn TEXT,
+      description TEXT,
+      submitter_name TEXT NOT NULL,
+      submitter_contact TEXT,
+      submitter_note TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      review_note TEXT,
+      reviewer_id INTEGER,
+      reviewed_at TEXT,
+      approved_version_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE SET NULL,
+      FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY (approved_version_id) REFERENCES versions(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS version_submission_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      submission_id INTEGER NOT NULL,
+      filename TEXT NOT NULL,
+      caption TEXT,
+      uploaded_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (submission_id) REFERENCES version_submissions(id) ON DELETE CASCADE
     );
   `);
 
