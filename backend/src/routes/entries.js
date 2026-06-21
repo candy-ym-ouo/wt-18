@@ -13,7 +13,11 @@ async function routes(fastify) {
   fastify.get('/api/entries/:id', async (req) => {
     const id = Number(req.params.id);
     const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
-    if (!entry) throw fastify.httpErrors.notFound('词条不存在');
+    if (!entry) {
+      const err = new Error('词条不存在');
+      err.statusCode = 404;
+      throw err;
+    }
     const versions = db.prepare('SELECT * FROM versions WHERE entry_id = ? ORDER BY id').all(id);
     return { ...entry, versions };
   });

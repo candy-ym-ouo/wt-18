@@ -13,13 +13,20 @@ async function routes(fastify) {
   fastify.post('/api/versions/:versionId/images', async (req, reply) => {
     const versionId = Number(req.params.versionId);
     const version = db.prepare('SELECT id FROM versions WHERE id = ?').get(versionId);
-    if (!version) throw fastify.httpErrors.notFound('版本不存在');
+    if (!version) {
+      const err = new Error('版本不存在');
+      err.statusCode = 404;
+      throw err;
+    }
 
     const uploadDir = path.join(__dirname, '..', '..', 'uploads');
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
     const mp = await req.file();
-    if (!mp) return reply.code(400).send({ error: '未找到文件' });
+    if (!mp) {
+      reply.code(400);
+      return { error: '未找到文件' };
+    }
 
     const ext = path.extname(mp.filename) || '.png';
     const filename = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;

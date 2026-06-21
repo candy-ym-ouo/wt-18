@@ -17,7 +17,11 @@ async function routes(fastify) {
   fastify.post('/api/versions/:versionId/annotations', async (req) => {
     const versionId = Number(req.params.versionId);
     const { user_name, anchor_text, comment, parent_id } = req.body;
-    if (!comment) throw fastify.httpErrors.badRequest('批注内容不能为空');
+    if (!comment) {
+      const err = new Error('批注内容不能为空');
+      err.statusCode = 400;
+      throw err;
+    }
     const info = db.prepare(`
       INSERT INTO annotations (version_id, user_name, anchor_text, comment, parent_id)
       VALUES (?, ?, ?, ?, ?)

@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "旧书版本考据社区网站",
   "scripts": {
-    "install:all": "cd backend && npm install && cd ../frontend && npm install",
+    "install:all": "cd backend && npm install --no-audit --no-fund && cd ../frontend && npm install --no-audit --no-fund",
     "seed": "cd backend && npm run seed",
+    "reset": "cd backend && rm -rf data uploads && npm run seed",
     "dev": "node scripts/start.js",
+    "start": "node scripts/start.js",
     "backend": "cd backend && npm start",
     "frontend": "cd frontend && npm run dev"
   }

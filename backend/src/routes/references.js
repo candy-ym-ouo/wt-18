@@ -21,7 +21,9 @@ async function routes(fastify) {
   fastify.post('/api/references', async (req) => {
     const { from_entry_id, to_entry_id, relation_type, note } = req.body;
     if (!from_entry_id || !to_entry_id || from_entry_id === to_entry_id) {
-      throw fastify.httpErrors.badRequest('参数无效');
+      const err = new Error('参数无效');
+      err.statusCode = 400;
+      throw err;
     }
     const info = db.prepare(`
       INSERT INTO refs (from_entry_id, to_entry_id, relation_type, note)
