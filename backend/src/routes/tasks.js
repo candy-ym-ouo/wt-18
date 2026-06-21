@@ -1,5 +1,6 @@
 const { db } = require('../db');
 const { authenticate, requirePermission } = require('../auth');
+const { notifyTaskAssigned, notifyTaskComment } = require('../notificationService');
 
 const TASK_STATUSES = ['todo', 'in_progress', 'review', 'done'];
 const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
@@ -180,6 +181,17 @@ async function routes(fastify) {
     });
 
     const taskId = tx();
+
+    if (assigneeIds && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+      notifyTaskAssigned({
+        taskId,
+        taskTitle: title.trim(),
+        assigneeIds: assigneeIds.map(id => Number(id)).filter(id => id !== req.user.id),
+        assignerId: req.user.id,
+        assignerName: req.user.displayName || req.user.username
+      });
+    }
+
     return { id: taskId, ...getTaskWithDetails(taskId) };
   });
 
@@ -212,6 +224,14 @@ async function routes(fastify) {
       WHERE tc.id = ?
     `).get(info.lastInsertRowid);
 
+    const taskDetail = db.prepare('SELECT title FROM tasks WHERE id = ?').get(taskId);
+    notifyTaskComment({
+      taskId,
+      taskTitle: taskDetail?.title || '',
+      commentUserId: req.user.id,
+      commentUserName: req.user.displayName || req.user.username
+    });
+
     return comment;
   });
 
@@ -221,7 +241,7 @@ async function routes(fastify) {
     const id = Number(req.params.id);
     const { title, description, priority, status, entryId, versionId, dueDate, assigneeIds } = req.body;
 
-    const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+    const task = db.prepare('SELECT id, title FROM tasks WHERE id = ?').get(id);
     if (!task) {
       reply.code(404);
       return { error: '任务不存在', code: 'TASK_NOT_FOUND' };
@@ -236,6 +256,8 @@ async function routes(fastify) {
       reply.code(400);
       return { error: '状态无效', code: 'INVALID_STATUS' };
     }
+
+    let newAssignees = [];
 
     const tx = db.transaction(() => {
       const fields = [];
@@ -277,16 +299,30 @@ async function routes(fastify) {
       }
 
       if (assigneeIds !== undefined && Array.isArray(assigneeIds)) {
+        const oldAssignees = db.prepare('SELECT user_id FROM task_assignments WHERE task_id = ?').all(id).map(a => a.user_id);
         db.prepare('DELETE FROM task_assignments WHERE task_id = ?').run(id);
         const assignStmt = db.prepare('INSERT OR IGNORE INTO task_assignments (task_id, user_id) VALUES (?, ?)');
         for (const userId of assigneeIds) {
           assignStmt.run(id, Number(userId));
         }
+        newAssignees = assigneeIds.map(id => Number(id)).filter(id => !oldAssignees.includes(id));
       }
     });
 
     tx();
-    return { ok: true, ...getTaskWithDetails(id) };
+
+    const updatedTask = getTaskWithDetails(id);
+    if (newAssignees.length > 0) {
+      notifyTaskAssigned({
+        taskId: id,
+        taskTitle: updatedTask.title,
+        assigneeIds: newAssignees.filter(id => id !== req.user.id),
+        assignerId: req.user.id,
+        assignerName: req.user.displayName || req.user.username
+      });
+    }
+
+    return { ok: true, ...updatedTask };
   });
 
   fastify.patch('/api/tasks/:id/status', {
@@ -316,7 +352,7 @@ async function routes(fastify) {
     const taskId = Number(req.params.id);
     const { userId } = req.body;
 
-    const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(taskId);
+    const task = db.prepare('SELECT id, title FROM tasks WHERE id = ?').get(taskId);
     if (!task) {
       reply.code(404);
       return { error: '任务不存在', code: 'TASK_NOT_FOUND' };
@@ -328,7 +364,18 @@ async function routes(fastify) {
       return { error: '用户不存在', code: 'USER_NOT_FOUND' };
     }
 
-    db.prepare('INSERT OR IGNORE INTO task_assignments (task_id, user_id) VALUES (?, ?)').run(taskId, Number(userId));
+    const result = db.prepare('INSERT OR IGNORE INTO task_assignments (task_id, user_id) VALUES (?, ?)').run(taskId, Number(userId));
+
+    if (result.changes > 0 && Number(userId) !== req.user.id) {
+      notifyTaskAssigned({
+        taskId,
+        taskTitle: task.title,
+        assigneeIds: [Number(userId)],
+        assignerId: req.user.id,
+        assignerName: req.user.displayName || req.user.username
+      });
+    }
+
     return { ok: true, ...getTaskWithDetails(taskId) };
   });
 

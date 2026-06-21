@@ -48,7 +48,8 @@ try {
     ['admin', require('./routes/admin')],
     ['versionSubmissions', require('./routes/versionSubmissions')],
     ['collation', require('./routes/collation')],
-    ['bibliography', require('./routes/bibliography')]
+    ['bibliography', require('./routes/bibliography')],
+    ['notifications', require('./routes/notifications')]
   ];
 
   for (const [name, mod] of routeModules) {

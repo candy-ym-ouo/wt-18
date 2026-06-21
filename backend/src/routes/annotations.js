@@ -1,5 +1,6 @@
 const { db } = require('../db');
 const { authenticate, requirePermission } = require('../auth');
+const { notifyAnnotationReply } = require('../notificationService');
 
 async function routes(fastify) {
   fastify.get('/api/versions/:versionId/annotations', async (req) => {
@@ -30,6 +31,13 @@ async function routes(fastify) {
       INSERT INTO annotations (version_id, user_name, anchor_text, comment, parent_id)
       VALUES (?, ?, ?, ?, ?)
     `).run(versionId, displayName, anchor_text || '', comment, parent_id || null);
+
+    if (parent_id) {
+      const parentAnnotation = db.prepare('SELECT * FROM annotations WHERE id = ?').get(parent_id);
+      const replyAnnotation = { id: info.lastInsertRowid, user_name: displayName, comment, anchor_text };
+      notifyAnnotationReply({ parentAnnotation, replyAnnotation, versionId });
+    }
+
     return { id: info.lastInsertRowid };
   });
 

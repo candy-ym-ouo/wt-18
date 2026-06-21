@@ -354,6 +354,36 @@ function initSchema() {
       FOREIGN KEY (to_bib_id) REFERENCES bibliography(id) ON DELETE CASCADE,
       UNIQUE(from_bib_id, to_bib_id, relation_type)
     );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      sender_id INTEGER,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT,
+      ref_type TEXT,
+      ref_id INTEGER,
+      extra_data TEXT,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      read_at TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS system_announcements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      priority TEXT NOT NULL DEFAULT 'normal',
+      target_role TEXT,
+      creator_id INTEGER,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL
+    );
   `);
 
   try {

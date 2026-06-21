@@ -14,6 +14,7 @@
       </nav>
       <div class="user-area">
         <div v-if="userStore.isLoggedIn" class="user-menu">
+          <NotificationDropdown />
           <button class="user-btn" @click="showMenu = !showMenu">
             <span class="avatar">{{ avatarChar }}</span>
             <span class="user-name">{{ userStore.username }}</span>
@@ -30,6 +31,9 @@
               </div>
             </div>
             <div class="dropdown-divider"></div>
+            <router-link to="/notifications" class="dd-item" @click="showMenu = false">
+              <span>🔔</span> 消息中心
+            </router-link>
             <button class="dd-item" @click="openPwdModal">
               <span>🔑</span> 修改密码
             </button>
@@ -82,9 +86,12 @@
 import { ref, computed, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from './stores/user';
+import { useNotificationStore } from './stores/notification';
 import { ROLE_LABELS, ROLES } from './api';
+import NotificationDropdown from './components/NotificationDropdown.vue';
 
 const userStore = useUserStore();
+const notifStore = useNotificationStore();
 const router = useRouter();
 
 const showMenu = ref(false);
@@ -154,6 +161,9 @@ function doLogout() {
 
 onMounted(() => {
   userStore.init();
+  if (userStore.isLoggedIn || localStorage.getItem('oldbook_token')) {
+    notifStore.init();
+  }
 });
 </script>
 

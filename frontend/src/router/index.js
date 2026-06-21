@@ -9,6 +9,7 @@ const routes = [
   { path: '/topics/:id', name: 'TopicDetail', component: () => import('../views/TopicDetailView.vue'), props: true },
   { path: '/topics/:id/chapters/:chapterId', name: 'ChapterRead', component: () => import('../views/ChapterReadView.vue'), props: true },
   { path: '/tasks', name: 'TaskBoard', component: () => import('../views/TaskBoardView.vue') },
+  { path: '/notifications', name: 'Notifications', component: () => import('../views/NotificationCenter.vue') },
   { path: '/entries/:id', name: 'EntryDetail', component: () => import('../views/EntryDetail.vue'), props: true },
   { path: '/compare', name: 'Compare', component: () => import('../views/CompareView.vue') },
   { path: '/collation', name: 'Collation', component: () => import('../views/CollationWorkbench.vue') },

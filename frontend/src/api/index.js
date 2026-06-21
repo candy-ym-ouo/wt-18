@@ -213,5 +213,23 @@ export const collationAPI = {
   getVersionResults: (versionId) => api.get(`/api/versions/${versionId}/collation-results`)
 };
 
+export const notificationsAPI = {
+  types: () => api.get('/api/notifications/types'),
+  list: (params = {}) => api.get('/api/notifications', { params }),
+  unreadCount: (type) => api.get('/api/notifications/unread-count', { params: { type } }),
+  markAsRead: (id) => api.patch(`/api/notifications/${id}/read`),
+  markAllAsRead: (type) => api.patch('/api/notifications/read-all', { type }),
+  remove: (id) => api.delete(`/api/notifications/${id}`),
+  clearRead: () => api.delete('/api/notifications/clear-read'),
+
+  announcementPriorities: () => api.get('/api/announcements/priorities'),
+  announcements: (params = {}) => api.get('/api/announcements', { params }),
+  getAnnouncement: (id) => api.get(`/api/announcements/${id}`),
+  createAnnouncement: (data) => api.post('/api/announcements', data),
+  updateAnnouncement: (id, data) => api.put(`/api/announcements/${id}`, data),
+  removeAnnouncement: (id) => api.delete(`/api/announcements/${id}`),
+  publishAnnouncement: (id, data) => api.post(`/api/announcements/${id}/publish`, data)
+};
+
 export { getToken, setToken };
 export default api;

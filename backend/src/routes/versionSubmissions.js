@@ -4,6 +4,7 @@ const fs = require('fs');
 const { pipeline } = require('stream');
 const { promisify } = require('util');
 const { authenticate, requirePermission } = require('../auth');
+const { notifyReviewResult } = require('../notificationService');
 const pump = promisify(pipeline);
 
 const SUBMISSION_STATUSES = {
@@ -227,6 +228,16 @@ async function routes(fastify) {
       WHERE id = ?
     `).run(SUBMISSION_STATUSES.APPROVED, review_note || '', req.user.id, versionId, id);
 
+    notifyReviewResult({
+      submissionId: id,
+      submissionVersion: submission.version_name,
+      status: SUBMISSION_STATUSES.APPROVED,
+      reviewNote: review_note,
+      reviewerId: req.user.id,
+      submitterName: submission.submitter_name,
+      submitterContact: submission.submitter_contact
+    });
+
     return { ok: true, version_id: versionId, entry_id: targetEntryId, message: '审核通过，已创建正式版本' };
   });
 
@@ -252,6 +263,16 @@ async function routes(fastify) {
           updated_at = datetime('now','localtime')
       WHERE id = ?
     `).run(SUBMISSION_STATUSES.REJECTED, review_note || '', req.user.id, id);
+
+    notifyReviewResult({
+      submissionId: id,
+      submissionVersion: submission.version_name,
+      status: SUBMISSION_STATUSES.REJECTED,
+      reviewNote: review_note,
+      reviewerId: req.user.id,
+      submitterName: submission.submitter_name,
+      submitterContact: submission.submitter_contact
+    });
 
     return { ok: true, message: '已拒绝该提交' };
   });
