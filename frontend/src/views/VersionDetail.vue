@@ -83,18 +83,76 @@
       </div>
       <p v-else class="meta">暂无批注，欢迎首发你的考据见解！</p>
     </div>
+
+    <h3 class="page-title" style="font-size:18px;margin-top:24px;">🔬 校勘结果</h3>
+    <div class="card">
+      <div v-if="collationResults.length === 0" class="meta">
+        <p>暂无校勘记录。</p>
+        <router-link to="/collation" style="margin-top:8px;display:inline-block;">前往校勘工作台 →</router-link>
+      </div>
+      <div v-else>
+        <div v-for="result in collationResults" :key="result.task.id" class="collation-result-card">
+          <div class="collation-result-header">
+            <div>
+              <h4 style="color:var(--primary-dark);margin:0;">{{ result.task.title }}</h4>
+              <p class="meta" style="margin-top:4px;">
+                📚 {{ result.task.entry?.title }} ·
+                📖 底本: {{ result.task.base_version?.version_name }} ·
+                校本: {{ result.task.target_versions?.map(v => v.version_name).join('、') }}
+              </p>
+            </div>
+            <div style="text-align:right;">
+              <span class="status-badge" :class="'status-' + result.task.status">
+                {{ getCollationStatusLabel(result.task.status) }}
+              </span>
+              <div style="margin-top:6px;">
+                <router-link :to="`/collation`" class="btn sm secondary">打开校勘工作台</router-link>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="result.diffs.length > 0" class="collation-section">
+            <h5 style="color:var(--primary-dark);margin-bottom:8px;">🔍 差异标注 ({{ result.diffs.length }})</h5>
+            <div v-for="d in result.diffs" :key="d.id" class="diff-mini">
+              <span class="diff-type-mini" :class="'diff-' + d.diff_type">{{ getDiffTypeLabel(d.diff_type) }}</span>
+              <span class="diff-text-mini">
+                <span class="base">「{{ d.base_text || '—' }}」</span>
+                <span class="arrow">→</span>
+                <span class="target">「{{ d.target_text || '—' }}」</span>
+              </span>
+              <span v-if="d.note" class="meta" style="margin-left:8px;">{{ d.note }}</span>
+            </div>
+          </div>
+
+          <div v-if="result.conclusions.length > 0" class="collation-section">
+            <h5 style="color:var(--primary-dark);margin-bottom:8px;">📝 校勘结论 ({{ result.conclusions.length }})</h5>
+            <div v-for="c in result.conclusions" :key="c.id" class="conclusion-mini">
+              <span class="conclusion-type-mini" :class="'type-' + c.conclusion_type">{{ getConclusionTypeLabel(c.conclusion_type) }}</span>
+              <span class="conclusion-status-mini" :class="'status-' + c.status">{{ getConclusionStatusLabel(c.status) }}</span>
+              <span class="conclusion-text">{{ c.content }}</span>
+              <span v-if="c.final_text" class="final-text-mini">定本:「{{ c.final_text }}」</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { versionsAPI, imagesAPI, annotationsAPI } from '../api';
+import { versionsAPI, imagesAPI, annotationsAPI, collationAPI } from '../api';
 
 const route = useRoute();
 const version = ref(null);
 const images = ref([]);
 const annotations = ref([]);
+const collationResults = ref([]);
+const collationStatuses = ref([]);
+const diffTypes = ref([]);
+const conclusionTypes = ref([]);
+const conclusionStatuses = ref([]);
 const imageCaption = ref('');
 const imagePage = ref(null);
 const newAnn = ref({ user_name: '', anchor_text: '', comment: '' });
@@ -103,17 +161,47 @@ const placeholder = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns=
 
 function onImgErr(e) { e.target.src = placeholder; }
 
+function getCollationStatusLabel(status) {
+  const s = collationStatuses.value.find(x => x.value === status);
+  return s ? s.label : status;
+}
+
+function getDiffTypeLabel(type) {
+  const t = diffTypes.value.find(x => x.value === type);
+  return t ? t.label : type;
+}
+
+function getConclusionTypeLabel(type) {
+  const t = conclusionTypes.value.find(x => x.value === type);
+  return t ? t.label : type;
+}
+
+function getConclusionStatusLabel(status) {
+  const s = conclusionStatuses.value.find(x => x.value === status);
+  return s ? s.label : status;
+}
+
 async function load() {
   const id = route.params.id;
   try {
-    const [vRes, iRes, aRes] = await Promise.all([
+    const [vRes, iRes, aRes, cRes, csRes, dtRes, ctRes, cstRes] = await Promise.all([
       versionsAPI.get(id),
       imagesAPI.listByVersion(id),
-      annotationsAPI.listByVersion(id)
+      annotationsAPI.listByVersion(id),
+      collationAPI.getVersionResults(id).catch(() => ({ data: [] })),
+      collationAPI.statuses().catch(() => ({ data: [] })),
+      collationAPI.diffTypes().catch(() => ({ data: [] })),
+      collationAPI.conclusionTypes().catch(() => ({ data: [] })),
+      collationAPI.conclusionStatuses().catch(() => ({ data: [] }))
     ]);
     version.value = vRes.data;
     images.value = iRes.data;
     annotations.value = aRes.data;
+    collationResults.value = cRes.data || [];
+    collationStatuses.value = csRes.data || [];
+    diffTypes.value = dtRes.data || [];
+    conclusionTypes.value = ctRes.data || [];
+    conclusionStatuses.value = cstRes.data || [];
   } catch (e) { console.error(e); }
 }
 
@@ -150,3 +238,145 @@ async function submitAnn() {
 
 onMounted(load);
 </script>
+
+<style scoped>
+.status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-draft { background: #e0e0e0; color: #616161; }
+.status-in_progress { background: #ffe0b2; color: #ef6c00; }
+.status-review { background: #e1bee7; color: #7b1fa2; }
+.status-done { background: #c8e6c9; color: #388e3c; }
+.status-archived { background: #b0bec5; color: #455a64; }
+
+.collation-result-card {
+  background: #fffdf8;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.collation-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.collation-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed #eee;
+}
+
+.diff-mini {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  background: #fff;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.diff-type-mini {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.diff-character { background: #ef6c00; }
+.diff-punctuation { background: #7b1fa2; }
+.diff-wording { background: #1976d2; }
+.diff-paragraph { background: #00796b; }
+.diff-missing { background: #c62828; }
+.diff-extra { background: #2e7d32; }
+.diff-other { background: #546e7a; }
+
+.diff-text-mini {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+}
+
+.diff-text-mini .base {
+  background: rgba(139, 90, 43, 0.1);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.diff-text-mini .arrow {
+  color: var(--text-muted);
+  margin: 0 4px;
+}
+
+.diff-text-mini .target {
+  background: rgba(255, 152, 0, 0.15);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.conclusion-mini {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #fffaf2, #fffdf8);
+  border-left: 3px solid var(--primary);
+  border-radius: 0 4px 4px 0;
+  margin-bottom: 6px;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.conclusion-type-mini {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.type-accept_base { background: #1565c0; }
+.type-accept_target { background: #ef6c00; }
+.type-custom { background: #6a1b9a; }
+.type-needs_research { background: #c62828; }
+.type-no_difference { background: #2e7d32; }
+
+.conclusion-status-mini {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.status-pending { background: #fff3e0; color: #ef6c00; }
+.status-reviewed { background: #e3f2fd; color: #1565c0; }
+.status-approved { background: #e8f5e9; color: #2e7d32; }
+.status-rejected { background: #ffebee; color: #c62828; }
+
+.conclusion-text {
+  flex: 1;
+}
+
+.final-text-mini {
+  font-family: "Noto Serif SC", "Songti SC", serif;
+  background: linear-gradient(135deg, #fff8e1, #ffecb3);
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+</style>

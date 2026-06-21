@@ -188,5 +188,30 @@ export const submissionsAPI = {
   remove: (id) => api.delete(`/api/submissions/${id}`)
 };
 
+export const collationAPI = {
+  list: (params = {}) => api.get('/api/collation', { params }),
+  get: (id) => api.get(`/api/collation/${id}`),
+  getParagraphs: (id) => api.get(`/api/collation/${id}/paragraphs`),
+  getDiffs: (id) => api.get(`/api/collation/${id}/diffs`),
+  getConclusions: (id) => api.get(`/api/collation/${id}/conclusions`),
+  create: (data) => api.post('/api/collation', data),
+  update: (id, data) => api.put(`/api/collation/${id}`, data),
+  remove: (id) => api.delete(`/api/collation/${id}`),
+  updateStatus: (id, status) => api.patch(`/api/collation/${id}/status`, { status }),
+  setReviewer: (id, reviewerId) => api.patch(`/api/collation/${id}/reviewer`, { reviewerId }),
+  createDiff: (id, data) => api.post(`/api/collation/${id}/diff`, data),
+  updateDiff: (id, diffId, data) => api.put(`/api/collation/${id}/diff/${diffId}`, data),
+  removeDiff: (id, diffId) => api.delete(`/api/collation/${id}/diff/${diffId}`),
+  createConclusion: (id, data) => api.post(`/api/collation/${id}/conclusion`, data),
+  updateConclusion: (id, conclusionId, data) => api.put(`/api/collation/${id}/conclusion/${conclusionId}`, data),
+  reviewConclusion: (id, conclusionId, data) => api.post(`/api/collation/${id}/conclusion/${conclusionId}/review`, data),
+  removeConclusion: (id, conclusionId) => api.delete(`/api/collation/${id}/conclusion/${conclusionId}`),
+  statuses: () => api.get('/api/collation/statuses'),
+  diffTypes: () => api.get('/api/collation/diff-types'),
+  conclusionTypes: () => api.get('/api/collation/conclusion-types'),
+  conclusionStatuses: () => api.get('/api/collation/conclusion-statuses'),
+  getVersionResults: (versionId) => api.get(`/api/versions/${versionId}/collation-results`)
+};
+
 export { getToken, setToken };
 export default api;

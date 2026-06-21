@@ -11,6 +11,7 @@ const routes = [
   { path: '/tasks', name: 'TaskBoard', component: () => import('../views/TaskBoardView.vue') },
   { path: '/entries/:id', name: 'EntryDetail', component: () => import('../views/EntryDetail.vue'), props: true },
   { path: '/compare', name: 'Compare', component: () => import('../views/CompareView.vue') },
+  { path: '/collation', name: 'Collation', component: () => import('../views/CollationWorkbench.vue') },
   { path: '/versions/:id', name: 'VersionDetail', component: () => import('../views/VersionDetail.vue'), props: true },
   { path: '/graph', name: 'Graph', component: () => import('../views/GraphView.vue') },
   { path: '/submission', name: 'VersionSubmission', component: () => import('../views/VersionSubmissionView.vue'), meta: { public: true } },

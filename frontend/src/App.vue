@@ -6,6 +6,7 @@
         <router-link to="/">词条浏览</router-link>
         <router-link to="/topics">专题专栏</router-link>
         <router-link to="/tasks">任务协作</router-link>
+        <router-link to="/collation">校勘工作台</router-link>
         <router-link to="/compare">版本对照</router-link>
         <router-link to="/graph">引用图谱</router-link>
         <router-link to="/submission" class="nav-submission">版本征集</router-link>

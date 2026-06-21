@@ -18,8 +18,8 @@ const ROLES = {
 
 const ROLE_PERMISSIONS = {
   [ROLES.ADMIN]: ['*'],
-  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review'],
-  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create']
+  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review', 'collation:read', 'collation:write', 'collation:conclude', 'collation:review'],
+  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create', 'collation:read']
 };
 
 const ROLE_HIERARCHY = {
@@ -213,6 +213,79 @@ function initSchema() {
       caption TEXT,
       uploaded_at TEXT DEFAULT (datetime('now','localtime')),
       FOREIGN KEY (submission_id) REFERENCES version_submissions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS collation_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER,
+      entry_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      base_version_id INTEGER NOT NULL,
+      target_version_ids TEXT NOT NULL,
+      creator_id INTEGER NOT NULL,
+      reviewer_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
+      FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+      FOREIGN KEY (base_version_id) REFERENCES versions(id) ON DELETE CASCADE,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS collation_paragraphs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      collation_task_id INTEGER NOT NULL,
+      version_id INTEGER NOT NULL,
+      paragraph_index INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (collation_task_id) REFERENCES collation_tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE CASCADE,
+      UNIQUE(collation_task_id, version_id, paragraph_index)
+    );
+
+    CREATE TABLE IF NOT EXISTS collation_diffs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      collation_task_id INTEGER NOT NULL,
+      paragraph_index INTEGER NOT NULL,
+      diff_type TEXT NOT NULL,
+      base_text TEXT,
+      target_version_id INTEGER NOT NULL,
+      target_text TEXT,
+      start_pos INTEGER,
+      end_pos INTEGER,
+      note TEXT,
+      creator_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (collation_task_id) REFERENCES collation_tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (target_version_id) REFERENCES versions(id) ON DELETE CASCADE,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS collation_conclusions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      collation_task_id INTEGER NOT NULL,
+      diff_id INTEGER,
+      paragraph_index INTEGER,
+      conclusion_type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      evidence TEXT,
+      final_text TEXT,
+      reviewer_note TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      creator_id INTEGER,
+      reviewer_id INTEGER,
+      reviewed_at TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (collation_task_id) REFERENCES collation_tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (diff_id) REFERENCES collation_diffs(id) ON DELETE SET NULL,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL
     );
   `);
 
