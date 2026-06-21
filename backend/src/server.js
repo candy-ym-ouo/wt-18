@@ -49,7 +49,8 @@ try {
     ['versionSubmissions', require('./routes/versionSubmissions')],
     ['collation', require('./routes/collation')],
     ['bibliography', require('./routes/bibliography')],
-    ['notifications', require('./routes/notifications')]
+    ['notifications', require('./routes/notifications')],
+    ['dataCenter', require('./routes/dataCenter')]
   ];
 
   for (const [name, mod] of routeModules) {
