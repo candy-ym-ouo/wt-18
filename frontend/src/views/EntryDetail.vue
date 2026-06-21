@@ -51,6 +51,14 @@
       <button class="btn" :disabled="compareIds.length < 2" @click="goCompare">开始对照 ({{ compareIds.length }})</button>
     </div>
 
+    <h3 class="page-title" style="font-size:20px;margin-top:24px;">📜 修订历史</h3>
+    <RevisionHistory
+      entity-type="entry"
+      :entity-id="entryId"
+      :user="currentUser"
+      @rollback="onRollback"
+    />
+
     <h3 class="page-title" style="font-size:20px;margin-top:24px;">引用关系</h3>
     <div class="grid cols-2">
       <div class="card">
@@ -84,24 +92,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { entriesAPI, referencesAPI } from '../api';
+import { useUserStore } from '../stores/user';
+import RevisionHistory from '../components/RevisionHistory.vue';
 
 const props = defineProps(['id']);
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 
 const entry = ref(null);
 const refs = ref({ outgoing: [], incoming: [] });
 const compareIds = ref([]);
 
+const entryId = computed(() => props.id || route.params.id);
+const currentUser = computed(() => userStore.user);
+
 async function load() {
-  const id = props.id || route.params.id;
   try {
     const [eRes, rRes] = await Promise.all([
-      entriesAPI.get(id),
-      referencesAPI.listByEntry(id)
+      entriesAPI.get(entryId.value),
+      referencesAPI.listByEntry(entryId.value)
     ]);
     entry.value = eRes.data;
     refs.value = rRes.data;
@@ -114,6 +127,10 @@ function goCompare() {
     router.push({ path: '/compare', query: { ids: compareIds.value.join(',') } });
   }
 }
+function onRollback() { load(); }
 
-onMounted(load);
+onMounted(() => {
+  userStore.init();
+  load();
+});
 </script>

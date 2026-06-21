@@ -50,7 +50,8 @@ try {
     ['collation', require('./routes/collation')],
     ['bibliography', require('./routes/bibliography')],
     ['notifications', require('./routes/notifications')],
-    ['dataCenter', require('./routes/dataCenter')]
+    ['dataCenter', require('./routes/dataCenter')],
+    ['revisionHistory', require('./routes/revisionHistory')]
   ];
 
   for (const [name, mod] of routeModules) {

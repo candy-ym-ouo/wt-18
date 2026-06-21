@@ -231,5 +231,31 @@ export const notificationsAPI = {
   publishAnnouncement: (id, data) => api.post(`/api/announcements/${id}/publish`, data)
 };
 
+export const revisionsAPI = {
+  list: (entityType, entityId) => api.get(`/api/revisions/${entityType}/${entityId}`),
+  get: (id) => api.get(`/api/revisions/${id}`),
+  rollback: (id) => api.post(`/api/revisions/${id}/rollback`),
+  snapshot: (entityType, entityId) => api.get(`/api/revisions/snapshot/${entityType}/${entityId}`)
+};
+
+const FIELD_LABELS = {
+  title: '标题',
+  author: '作者',
+  dynasty: '朝代',
+  summary: '简介',
+  cover_url: '封面图片',
+  version_name: '版本名称',
+  publisher: '出版者',
+  pub_year: '出版年份',
+  pages: '页数/回数',
+  isbn: 'ISBN',
+  description: '版本描述',
+  full_text: '全文内容'
+};
+
+export function getFieldLabel(field) {
+  return FIELD_LABELS[field] || field;
+}
+
 export { getToken, setToken };
 export default api;

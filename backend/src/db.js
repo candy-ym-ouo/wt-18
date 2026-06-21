@@ -18,8 +18,8 @@ const ROLES = {
 
 const ROLE_PERMISSIONS = {
   [ROLES.ADMIN]: ['*'],
-  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review', 'collation:read', 'collation:write', 'collation:conclude', 'collation:review', 'bibliography:read', 'bibliography:write'],
-  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create', 'collation:read', 'bibliography:read']
+  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review', 'collation:read', 'collation:write', 'collation:conclude', 'collation:review', 'bibliography:read', 'bibliography:write', 'revisions:read', 'revisions:rollback'],
+  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create', 'collation:read', 'bibliography:read', 'revisions:read']
 };
 
 const ROLE_HIERARCHY = {
@@ -384,6 +384,22 @@ function initSchema() {
       updated_at TEXT DEFAULT (datetime('now','localtime')),
       FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL
     );
+
+    CREATE TABLE IF NOT EXISTS revision_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER NOT NULL,
+      field_name TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      change_summary TEXT,
+      user_id INTEGER,
+      user_display_name TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_revision_history_entity ON revision_history(entity_type, entity_id);
+    CREATE INDEX IF NOT EXISTS idx_revision_history_user ON revision_history(user_id);
   `);
 
   try {
@@ -416,4 +432,45 @@ function initSchema() {
 
 initSchema();
 
-module.exports = { db, ROLES, ROLE_PERMISSIONS, ROLE_HIERARCHY };
+function createRevision(entityType, entityId, fieldName, oldValue, newValue, user) {
+  if (oldValue === newValue) return null;
+  const oldStr = oldValue == null ? null : String(oldValue);
+  const newStr = newValue == null ? null : String(newValue);
+  let summary = '';
+  if (oldStr && newStr) {
+    const oldPreview = oldStr.length > 50 ? oldStr.slice(0, 50) + '...' : oldStr;
+    const newPreview = newStr.length > 50 ? newStr.slice(0, 50) + '...' : newStr;
+    summary = `"${oldPreview}" → "${newPreview}"`;
+  } else if (!oldStr && newStr) {
+    summary = `新增: "${newStr.length > 50 ? newStr.slice(0, 50) + '...' : newStr}"`;
+  } else if (oldStr && !newStr) {
+    summary = `删除: "${oldStr.length > 50 ? oldStr.slice(0, 50) + '...' : oldStr}"`;
+  }
+  const info = db.prepare(`
+    INSERT INTO revision_history (entity_type, entity_id, field_name, old_value, new_value, change_summary, user_id, user_display_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    entityType,
+    entityId,
+    fieldName,
+    oldStr,
+    newStr,
+    summary,
+    user?.id || null,
+    user?.displayName || user?.username || '匿名用户'
+  );
+  return info.lastInsertRowid;
+}
+
+function createRevisionsFromDiff(entityType, entityId, oldObj, newObj, fields, user) {
+  const ids = [];
+  for (const field of fields) {
+    const oldVal = oldObj ? oldObj[field] : null;
+    const newVal = newObj ? newObj[field] : null;
+    const id = createRevision(entityType, entityId, field, oldVal, newVal, user);
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
+module.exports = { db, ROLES, ROLE_PERMISSIONS, ROLE_HIERARCHY, createRevision, createRevisionsFromDiff };

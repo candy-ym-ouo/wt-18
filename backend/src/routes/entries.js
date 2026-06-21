@@ -1,4 +1,4 @@
-const { db } = require('../db');
+const { db, createRevisionsFromDiff } = require('../db');
 const { authenticate, requirePermission } = require('../auth');
 
 async function routes(fastify) {
@@ -39,11 +39,27 @@ async function routes(fastify) {
   }, async (req) => {
     const id = Number(req.params.id);
     const { title, author, dynasty, summary, cover_url } = req.body;
+    const oldEntry = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+    if (!oldEntry) {
+      const err = new Error('词条不存在');
+      err.statusCode = 404;
+      throw err;
+    }
+    const newData = {
+      title: title ?? oldEntry.title,
+      author: author ?? oldEntry.author,
+      dynasty: dynasty ?? oldEntry.dynasty,
+      summary: summary ?? oldEntry.summary,
+      cover_url: cover_url ?? oldEntry.cover_url
+    };
     db.prepare(`
       UPDATE entries SET title=?, author=?, dynasty=?, summary=?, cover_url=?,
         updated_at = datetime('now','localtime')
       WHERE id = ?
-    `).run(title, author, dynasty, summary, cover_url, id);
+    `).run(newData.title, newData.author, newData.dynasty, newData.summary, newData.cover_url, id);
+
+    createRevisionsFromDiff('entry', id, oldEntry, newData, ['title', 'author', 'dynasty', 'summary', 'cover_url'], req.user);
+
     return { ok: true };
   });
 

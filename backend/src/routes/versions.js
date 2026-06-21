@@ -1,4 +1,4 @@
-const { db } = require('../db');
+const { db, createRevisionsFromDiff } = require('../db');
 const { authenticate, requirePermission } = require('../auth');
 
 async function routes(fastify) {
@@ -41,10 +41,28 @@ async function routes(fastify) {
   }, async (req) => {
     const id = Number(req.params.id);
     const { version_name, publisher, pub_year, pages, isbn, description, full_text } = req.body;
+    const oldVersion = db.prepare('SELECT * FROM versions WHERE id = ?').get(id);
+    if (!oldVersion) {
+      const err = new Error('版本不存在');
+      err.statusCode = 404;
+      throw err;
+    }
+    const newData = {
+      version_name: version_name ?? oldVersion.version_name,
+      publisher: publisher ?? oldVersion.publisher,
+      pub_year: pub_year ?? oldVersion.pub_year,
+      pages: pages ?? oldVersion.pages,
+      isbn: isbn ?? oldVersion.isbn,
+      description: description ?? oldVersion.description,
+      full_text: full_text ?? oldVersion.full_text
+    };
     db.prepare(`
       UPDATE versions SET version_name=?, publisher=?, pub_year=?, pages=?, isbn=?, description=?, full_text=?
       WHERE id = ?
-    `).run(version_name, publisher, pub_year, pages, isbn, description, full_text, id);
+    `).run(newData.version_name, newData.publisher, newData.pub_year, newData.pages, newData.isbn, newData.description, newData.full_text, id);
+
+    createRevisionsFromDiff('version', id, oldVersion, newData, ['version_name', 'publisher', 'pub_year', 'pages', 'isbn', 'description', 'full_text'], req.user);
+
     return { ok: true };
   });
 

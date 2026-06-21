@@ -84,6 +84,14 @@
       <p v-else class="meta">暂无批注，欢迎首发你的考据见解！</p>
     </div>
 
+    <h3 class="page-title" style="font-size:18px;margin-top:24px;">📜 修订历史</h3>
+    <RevisionHistory
+      entity-type="version"
+      :entity-id="versionId"
+      :user="currentUser"
+      @rollback="onRollback"
+    />
+
     <h3 class="page-title" style="font-size:18px;margin-top:24px;">🔬 校勘结果</h3>
     <div class="card">
       <div v-if="collationResults.length === 0" class="meta">
@@ -140,12 +148,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { versionsAPI, imagesAPI, annotationsAPI, collationAPI } from '../api';
+import { useUserStore } from '../stores/user';
+import RevisionHistory from '../components/RevisionHistory.vue';
 
 const route = useRoute();
+const userStore = useUserStore();
 const version = ref(null);
+
+const versionId = computed(() => route.params.id);
+const currentUser = computed(() => userStore.user);
 const images = ref([]);
 const annotations = ref([]);
 const collationResults = ref([]);
@@ -236,7 +250,12 @@ async function submitAnn() {
   annotations.value = data;
 }
 
-onMounted(load);
+function onRollback() { load(); }
+
+onMounted(() => {
+  userStore.init();
+  load();
+});
 </script>
 
 <style scoped>
