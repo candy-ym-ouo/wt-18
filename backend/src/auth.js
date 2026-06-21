@@ -47,22 +47,22 @@ function authenticate() {
   return async (request, reply) => {
     const token = extractToken(request);
     if (!token) {
-      reply.code(401);
-      return { error: '未提供认证令牌', code: 'NO_TOKEN' };
+      reply.code(401).send({ error: '未提供认证令牌', code: 'NO_TOKEN' });
+      return;
     }
     const payload = verifyToken(token);
     if (!payload) {
-      reply.code(401);
-      return { error: '认证令牌无效或已过期', code: 'INVALID_TOKEN' };
+      reply.code(401).send({ error: '认证令牌无效或已过期', code: 'INVALID_TOKEN' });
+      return;
     }
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.id);
     if (!user) {
-      reply.code(401);
-      return { error: '用户不存在', code: 'USER_NOT_FOUND' };
+      reply.code(401).send({ error: '用户不存在', code: 'USER_NOT_FOUND' });
+      return;
     }
     if (user.status !== 'active') {
-      reply.code(403);
-      return { error: '账号已被禁用', code: 'USER_DISABLED' };
+      reply.code(403).send({ error: '账号已被禁用', code: 'USER_DISABLED' });
+      return;
     }
     request.user = {
       id: user.id,
@@ -86,12 +86,12 @@ function hasPermission(userRole, permission) {
 function requirePermission(permission) {
   return async (request, reply) => {
     if (!request.user) {
-      reply.code(401);
-      return { error: '未认证', code: 'UNAUTHENTICATED' };
+      reply.code(401).send({ error: '未认证', code: 'UNAUTHENTICATED' });
+      return;
     }
     if (!hasPermission(request.user.role, permission)) {
-      reply.code(403);
-      return { error: `无权限执行此操作（需要: ${permission}）`, code: 'PERMISSION_DENIED' };
+      reply.code(403).send({ error: `无权限执行此操作（需要: ${permission}）`, code: 'PERMISSION_DENIED' });
+      return;
     }
   };
 }
@@ -99,12 +99,12 @@ function requirePermission(permission) {
 function requireRole(...roles) {
   return async (request, reply) => {
     if (!request.user) {
-      reply.code(401);
-      return { error: '未认证', code: 'UNAUTHENTICATED' };
+      reply.code(401).send({ error: '未认证', code: 'UNAUTHENTICATED' });
+      return;
     }
     if (!roles.includes(request.user.role)) {
-      reply.code(403);
-      return { error: `需要角色: ${roles.join('/')}`, code: 'ROLE_REQUIRED' };
+      reply.code(403).send({ error: `需要角色: ${roles.join('/')}`, code: 'ROLE_REQUIRED' });
+      return;
     }
   };
 }
@@ -112,14 +112,14 @@ function requireRole(...roles) {
 function requireRoleLevel(minRole) {
   return async (request, reply) => {
     if (!request.user) {
-      reply.code(401);
-      return { error: '未认证', code: 'UNAUTHENTICATED' };
+      reply.code(401).send({ error: '未认证', code: 'UNAUTHENTICATED' });
+      return;
     }
     const userLevel = ROLE_HIERARCHY[request.user.role] || 0;
     const minLevel = ROLE_HIERARCHY[minRole] || 999;
     if (userLevel < minLevel) {
-      reply.code(403);
-      return { error: `权限不足（需要等级 ≥ ${minRole}）`, code: 'INSUFFICIENT_LEVEL' };
+      reply.code(403).send({ error: `权限不足（需要等级 ≥ ${minRole}）`, code: 'INSUFFICIENT_LEVEL' });
+      return;
     }
   };
 }
