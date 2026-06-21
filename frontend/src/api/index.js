@@ -125,6 +125,22 @@ export const referencesAPI = {
   graph: () => api.get('/api/references/graph')
 };
 
+export const tasksAPI = {
+  list: (params = {}) => api.get('/api/tasks', { params }),
+  board: (params = {}) => api.get('/api/tasks/board', { params }),
+  get: (id) => api.get(`/api/tasks/${id}`),
+  create: (data) => api.post('/api/tasks', data),
+  update: (id, data) => api.put(`/api/tasks/${id}`, data),
+  updateStatus: (id, status) => api.patch(`/api/tasks/${id}/status`, { status }),
+  remove: (id) => api.delete(`/api/tasks/${id}`),
+  assign: (id, userId) => api.post(`/api/tasks/${id}/assign`, { userId }),
+  unassign: (id, userId) => api.delete(`/api/tasks/${id}/assign/${userId}`),
+  getComments: (id) => api.get(`/api/tasks/${id}/comments`),
+  addComment: (id, content) => api.post(`/api/tasks/${id}/comments`, { content }),
+  statuses: () => api.get('/api/tasks/statuses'),
+  priorities: () => api.get('/api/tasks/priorities')
+};
+
 export const adminAPI = {
   stats: () => api.get('/api/admin/stats'),
   entries: () => api.get('/api/admin/entries'),

@@ -43,6 +43,7 @@ try {
     ['images', require('./routes/images')],
     ['annotations', require('./routes/annotations')],
     ['references', require('./routes/references')],
+    ['tasks', require('./routes/tasks')],
     ['admin', require('./routes/admin')]
   ];
 
@@ -72,7 +73,7 @@ const start = async () => {
     console.log(`🚀 后端服务已启动:  http://localhost:${port}`);
     console.log(`📚 接口基础地址:   http://localhost:${port}/api`);
     console.log(`� 登录接口:       http://localhost:${port}/api/auth/login`);
-    console.log(`�🖼️  静态文件目录:  http://localhost:${port}/uploads/`);
+    console.log(`��️  静态文件目录:  http://localhost:${port}/uploads/`);
     try {
       const printed = typeof fastify.printRoutes === 'function'
         ? fastify.printRoutes({ commonPrefix: false })

@@ -5,6 +5,7 @@ import { ROLES } from '../api';
 const routes = [
   { path: '/login', name: 'Login', component: () => import('../views/LoginView.vue'), meta: { public: true } },
   { path: '/', name: 'Home', component: () => import('../views/HomeView.vue') },
+  { path: '/tasks', name: 'TaskBoard', component: () => import('../views/TaskBoardView.vue') },
   { path: '/entries/:id', name: 'EntryDetail', component: () => import('../views/EntryDetail.vue'), props: true },
   { path: '/compare', name: 'Compare', component: () => import('../views/CompareView.vue') },
   { path: '/versions/:id', name: 'VersionDetail', component: () => import('../views/VersionDetail.vue'), props: true },

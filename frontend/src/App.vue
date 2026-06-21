@@ -4,6 +4,7 @@
       <router-link to="/" class="brand">📜 旧书版本考据</router-link>
       <nav>
         <router-link to="/">词条浏览</router-link>
+        <router-link to="/tasks">任务协作</router-link>
         <router-link to="/compare">版本对照</router-link>
         <router-link to="/graph">引用图谱</router-link>
         <router-link v-if="userStore.canAccessAdmin" to="/admin">后台编辑</router-link>
