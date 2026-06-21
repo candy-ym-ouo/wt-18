@@ -244,7 +244,7 @@ async function routes(fastify) {
       return { error: '校勘任务不存在', code: 'COLLATION_NOT_FOUND' };
     }
 
-    if (!paragraphIndex === undefined || !diffType || !targetVersionId) {
+    if (paragraphIndex === undefined || !diffType || !targetVersionId) {
       reply.code(400);
       return { error: '参数不完整', code: 'MISSING_PARAMS' };
     }
@@ -672,12 +672,13 @@ async function routes(fastify) {
     const results = [];
     for (const t of baseTasks) {
       const taskDetail = getCollationTaskWithDetails(t.id);
+      const isBaseVersion = taskDetail && taskDetail.base_version_id === versionId;
       const diffs = db.prepare(`
         SELECT cd.*, v.version_name as target_version_name
         FROM collation_diffs cd
         LEFT JOIN versions v ON cd.target_version_id = v.id
-        WHERE cd.collation_task_id = ? AND (cd.target_version_id = ? OR ? = ct.base_version_id)
-      `).all(t.id, versionId, versionId);
+        WHERE cd.collation_task_id = ? AND (cd.target_version_id = ? ${isBaseVersion ? 'OR 1=1' : ''})
+      `).all(t.id, versionId);
 
       const conclusions = db.prepare(`
         SELECT cc.*
