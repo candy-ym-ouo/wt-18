@@ -18,8 +18,8 @@ const ROLES = {
 
 const ROLE_PERMISSIONS = {
   [ROLES.ADMIN]: ['*'],
-  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review', 'collation:read', 'collation:write', 'collation:conclude', 'collation:review'],
-  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create', 'collation:read']
+  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review', 'collation:read', 'collation:write', 'collation:conclude', 'collation:review', 'bibliography:read', 'bibliography:write'],
+  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create', 'collation:read', 'bibliography:read']
 };
 
 const ROLE_HIERARCHY = {
@@ -286,6 +286,73 @@ function initSchema() {
       FOREIGN KEY (diff_id) REFERENCES collation_diffs(id) ON DELETE SET NULL,
       FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
       FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS bibliography (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bib_type TEXT NOT NULL CHECK (bib_type IN ('paper', 'journal', 'catalog', 'holding')),
+      title TEXT NOT NULL,
+      author TEXT,
+      publisher TEXT,
+      pub_year TEXT,
+      pub_place TEXT,
+      edition TEXT,
+      volume TEXT,
+      issue TEXT,
+      pages TEXT,
+      isbn TEXT,
+      issn TEXT,
+      doi TEXT,
+      url TEXT,
+      language TEXT,
+      keywords TEXT,
+      summary TEXT,
+      full_text TEXT,
+      call_number TEXT,
+      location TEXT,
+      access_status TEXT DEFAULT 'public',
+      status TEXT DEFAULT 'active',
+      creator_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS bibliography_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bibliography_id INTEGER NOT NULL,
+      entry_id INTEGER NOT NULL,
+      relation_type TEXT NOT NULL DEFAULT 'cites',
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (bibliography_id) REFERENCES bibliography(id) ON DELETE CASCADE,
+      FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+      UNIQUE(bibliography_id, entry_id, relation_type)
+    );
+
+    CREATE TABLE IF NOT EXISTS bibliography_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bibliography_id INTEGER NOT NULL,
+      version_id INTEGER NOT NULL,
+      relation_type TEXT NOT NULL DEFAULT 'cites',
+      note TEXT,
+      page_ref TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (bibliography_id) REFERENCES bibliography(id) ON DELETE CASCADE,
+      FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE CASCADE,
+      UNIQUE(bibliography_id, version_id, relation_type)
+    );
+
+    CREATE TABLE IF NOT EXISTS bibliography_refs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_bib_id INTEGER NOT NULL,
+      to_bib_id INTEGER NOT NULL,
+      relation_type TEXT NOT NULL DEFAULT 'cites',
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (from_bib_id) REFERENCES bibliography(id) ON DELETE CASCADE,
+      FOREIGN KEY (to_bib_id) REFERENCES bibliography(id) ON DELETE CASCADE,
+      UNIQUE(from_bib_id, to_bib_id, relation_type)
     );
   `);
 
