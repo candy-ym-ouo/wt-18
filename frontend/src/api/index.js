@@ -153,7 +153,26 @@ export const adminAPI = {
     api.put(`/api/admin/users/${id}/reset-password`, { newPassword }),
   toggleUserStatus: (id) => api.put(`/api/admin/users/${id}/toggle-status`),
   removeUser: (id) => api.delete(`/api/admin/users/${id}`),
-  allEntries: () => api.get('/api/admin/all-entries')
+  allEntries: () => api.get('/api/admin/all-entries'),
+  topics: () => api.get('/api/admin/topics'),
+  topic: (id) => api.get(`/api/admin/topics/${id}`),
+  createTopic: (data) => api.post('/api/admin/topics', data),
+  updateTopic: (id, data) => api.put(`/api/admin/topics/${id}`, data),
+  removeTopic: (id) => api.delete(`/api/admin/topics/${id}`),
+  topicChapters: (topicId) => api.get(`/api/admin/topics/${topicId}/chapters`),
+  chapter: (id) => api.get(`/api/admin/chapters/${id}`),
+  createChapter: (topicId, data) => api.post(`/api/admin/topics/${topicId}/chapters`, data),
+  updateChapter: (id, data) => api.put(`/api/admin/chapters/${id}`, data),
+  removeChapter: (id) => api.delete(`/api/admin/chapters/${id}`),
+  createTopicEntry: (data) => api.post('/api/admin/topic-entries', data),
+  updateTopicEntry: (id, data) => api.put(`/api/admin/topic-entries/${id}`, data),
+  removeTopicEntry: (id) => api.delete(`/api/admin/topic-entries/${id}`)
+};
+
+export const topicsAPI = {
+  list: () => api.get('/api/topics'),
+  get: (id) => api.get(`/api/topics/${id}`),
+  getChapter: (topicId, chapterId) => api.get(`/api/topics/${topicId}/chapters/${chapterId}`)
 };
 
 export { getToken, setToken };

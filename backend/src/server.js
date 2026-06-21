@@ -44,6 +44,7 @@ try {
     ['annotations', require('./routes/annotations')],
     ['references', require('./routes/references')],
     ['tasks', require('./routes/tasks')],
+    ['topics', require('./routes/topics')],
     ['admin', require('./routes/admin')]
   ];
 

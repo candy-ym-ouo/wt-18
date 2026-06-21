@@ -22,7 +22,9 @@ async function routes(fastify) {
       annotations: db.prepare('SELECT COUNT(*) AS c FROM annotations').get().c,
       references: db.prepare('SELECT COUNT(*) AS c FROM refs').get().c,
       users: db.prepare('SELECT COUNT(*) AS c FROM users').get().c,
-      activeUsers: db.prepare('SELECT COUNT(*) AS c FROM users WHERE status = ?').get('active').c
+      activeUsers: db.prepare('SELECT COUNT(*) AS c FROM users WHERE status = ?').get('active').c,
+      topics: db.prepare('SELECT COUNT(*) AS c FROM topics').get().c,
+      chapters: db.prepare('SELECT COUNT(*) AS c FROM chapters').get().c
     };
   });
 

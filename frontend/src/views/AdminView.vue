@@ -9,12 +9,15 @@
       <div class="stat-card"><div class="num">{{ stats.annotations }}</div><div class="label">批注数</div></div>
       <div class="stat-card"><div class="num">{{ stats.references }}</div><div class="label">引用数</div></div>
       <div class="stat-card"><div class="num">{{ stats.users || 0 }}</div><div class="label">学者数</div></div>
+      <div class="stat-card"><div class="num">{{ stats.topics || 0 }}</div><div class="label">专题数</div></div>
+      <div class="stat-card"><div class="num">{{ stats.chapters || 0 }}</div><div class="label">章节数</div></div>
     </div>
 
     <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
       <button :class="['btn', tab==='entries'?'':'secondary']" @click="tab='entries'">词条管理</button>
       <button :class="['btn', tab==='versions'?'':'secondary']" @click="tab='versions'">版本管理</button>
       <button :class="['btn', tab==='refs'?'':'secondary']" @click="tab='refs'">引用关系</button>
+      <button :class="['btn', tab==='topics'?'':'secondary']" @click="tab='topics'">专题专栏</button>
       <button v-if="userStore.isAdmin || canManageUsers" :class="['btn', tab==='users'?'':'secondary']" @click="tab='users'">学者管理</button>
     </div>
 
@@ -129,6 +132,92 @@
       </table>
       <div v-if="filteredUsers.length === 0" style="padding:30px;text-align:center;color:#999;">
         暂无匹配的学者账号
+      </div>
+    </div>
+
+    <div v-if="tab==='topics'" class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <h3 style="color:var(--primary-dark);">专题考据专栏</h3>
+        <button class="btn sm" @click="openTopicModal()">+ 新建专题</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>标题</th><th>作者</th><th>状态</th><th>章节数</th><th>词条数</th><th>排序</th><th>更新时间</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="t in topics" :key="t.id">
+            <td>{{ t.id }}</td>
+            <td><strong>{{ t.title }}</strong><div v-if="t.subtitle" class="meta" style="font-size:12px;">{{ t.subtitle }}</div></td>
+            <td>{{ t.author || '-' }}</td>
+            <td><span :class="['status-tag', t.status==='published'?'status-active':'status-disabled']">{{ t.status==='published'?'已发布':'草稿' }}</span></td>
+            <td>{{ t.chapter_count }}</td>
+            <td>{{ t.entry_count }}</td>
+            <td>{{ t.sort_order }}</td>
+            <td class="meta">{{ t.updated_at }}</td>
+            <td>
+              <div class="actions">
+                <button class="btn sm secondary" @click="openTopicModal(t)">编辑</button>
+                <button class="btn sm secondary" @click="editTopicChapters(t)">章节</button>
+                <button class="btn sm danger" @click="delTopic(t)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="topics.length === 0" style="padding:30px;text-align:center;color:#999;">暂无专题</div>
+    </div>
+
+    <div v-if="showChapterEditor" class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <button class="btn sm secondary" @click="showChapterEditor=false">← 返回专题列表</button>
+          <span style="margin-left:12px;font-size:16px;font-weight:bold;color:var(--primary-dark);">{{ currentTopic?.title }} - 章节目录</span>
+        </div>
+        <button class="btn sm" @click="openChapterModal()">+ 新建章节</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>标题</th><th>副标题</th><th>状态</th><th>词条数</th><th>排序</th><th>更新时间</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr v-for="c in chapters" :key="c.id">
+            <td>{{ c.id }}</td>
+            <td><strong>{{ c.title }}</strong></td>
+            <td>{{ c.subtitle || '-' }}</td>
+            <td><span :class="['status-tag', c.status==='published'?'status-active':'status-disabled']">{{ c.status==='published'?'已发布':'草稿' }}</span></td>
+            <td>{{ c.entry_count }}</td>
+            <td>{{ c.sort_order }}</td>
+            <td class="meta">{{ c.updated_at }}</td>
+            <td>
+              <div class="actions">
+                <button class="btn sm secondary" @click="openChapterModal(c)">编辑</button>
+                <button class="btn sm secondary" @click="editChapterEntries(c)">词条</button>
+                <button class="btn sm danger" @click="delChapter(c)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="chapters.length === 0" style="padding:30px;text-align:center;color:#999;">暂无章节</div>
+
+      <div v-if="showChapterEntries" class="card" style="margin-top:16px;background:#fffdf8;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h4 style="color:var(--primary-dark);">「{{ currentChapter?.title }}」关联词条</h4>
+          <button class="btn sm" @click="openTopicEntryModal('chapter')">+ 挂接词条</button>
+        </div>
+        <table>
+          <thead><tr><th>词条名</th><th>备注说明</th><th>排序</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr v-for="te in chapterEntries" :key="te.id">
+              <td><strong>{{ te.entry_title }}</strong></td>
+              <td class="meta">{{ te.note || '-' }}</td>
+              <td>{{ te.sort_order }}</td>
+              <td>
+                <div class="actions">
+                  <button class="btn sm secondary" @click="openTopicEntryModal('chapter', te)">编辑</button>
+                  <button class="btn sm danger" @click="delTopicEntry(te)">删除</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-if="chapterEntries.length === 0" style="padding:20px;text-align:center;color:#999;">暂无挂接词条</div>
       </div>
     </div>
 
@@ -302,6 +391,112 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showTopicModal" class="modal-overlay" @click.self="showTopicModal=false">
+      <div class="modal">
+        <h3>{{ editingTopic.id ? '编辑专题' : '新建专题' }}</h3>
+        <div class="form-group">
+          <label>专题标题 *</label>
+          <input v-model="editingTopic.title" />
+        </div>
+        <div class="form-group">
+          <label>副标题</label>
+          <input v-model="editingTopic.subtitle" />
+        </div>
+        <div class="form-group">
+          <label>作者/考据者</label>
+          <input v-model="editingTopic.author" />
+        </div>
+        <div class="form-group">
+          <label>封面 URL</label>
+          <input v-model="editingTopic.cover_url" />
+        </div>
+        <div class="form-group">
+          <label>专题简介</label>
+          <textarea v-model="editingTopic.summary"></textarea>
+        </div>
+        <div class="grid cols-2">
+          <div class="form-group">
+            <label>状态</label>
+            <select v-model="editingTopic.status">
+              <option value="draft">草稿</option>
+              <option value="published">发布</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>排序（数字越小越靠前）</label>
+            <input type="number" v-model.number="editingTopic.sort_order" />
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <button class="btn secondary" style="margin-right:8px;" @click="showTopicModal=false">取消</button>
+          <button class="btn" @click="saveTopic">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showChapterModal" class="modal-overlay" @click.self="showChapterModal=false">
+      <div class="modal">
+        <h3>{{ editingChapter.id ? '编辑章节' : '新建章节' }}</h3>
+        <div class="form-group">
+          <label>章节标题 *</label>
+          <input v-model="editingChapter.title" />
+        </div>
+        <div class="form-group">
+          <label>副标题</label>
+          <input v-model="editingChapter.subtitle" />
+        </div>
+        <div class="form-group">
+          <label>章节内容</label>
+          <textarea v-model="editingChapter.content" style="min-height:160px;"></textarea>
+        </div>
+        <div class="grid cols-2">
+          <div class="form-group">
+            <label>状态</label>
+            <select v-model="editingChapter.status">
+              <option value="draft">草稿</option>
+              <option value="published">发布</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>排序</label>
+            <input type="number" v-model.number="editingChapter.sort_order" />
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <button class="btn secondary" style="margin-right:8px;" @click="showChapterModal=false">取消</button>
+          <button class="btn" @click="saveChapter">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showTopicEntryModal" class="modal-overlay" @click.self="showTopicEntryModal=false">
+      <div class="modal sm-modal">
+        <h3>{{ editingTopicEntry.id ? '编辑词条挂接' : '挂接词条' }}</h3>
+        <div v-if="!editingTopicEntry.id" class="form-group">
+          <label>选择词条 *</label>
+          <select v-model="editingTopicEntry.entry_id">
+            <option v-for="e in entriesMin" :key="e.id" :value="e.id">{{ e.title }}</option>
+          </select>
+        </div>
+        <div v-else class="form-group">
+          <label>词条</label>
+          <input :value="editingTopicEntry.entry_title" disabled />
+        </div>
+        <div class="form-group">
+          <label>备注说明</label>
+          <textarea v-model="editingTopicEntry.note" style="min-height:80px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label>排序</label>
+          <input type="number" v-model.number="editingTopicEntry.sort_order" />
+        </div>
+        <div style="text-align:right;">
+          <button class="btn secondary" style="margin-right:8px;" @click="showTopicEntryModal=false">取消</button>
+          <button class="btn" @click="saveTopicEntry">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -313,11 +508,28 @@ import { useUserStore } from '../stores/user';
 const userStore = useUserStore();
 
 const tab = ref('entries');
-const stats = ref({ entries: 0, versions: 0, images: 0, annotations: 0, references: 0, users: 0 });
+const stats = ref({ entries: 0, versions: 0, images: 0, annotations: 0, references: 0, users: 0, topics: 0, chapters: 0 });
 const entries = ref([]);
 const entriesMin = ref([]);
 const versions = ref([]);
 const allRefs = ref([]);
+
+const topics = ref([]);
+const showTopicModal = ref(false);
+const editingTopic = reactive({ id: null, title: '', subtitle: '', author: '', summary: '', cover_url: '', status: 'draft', sort_order: 0 });
+
+const showChapterEditor = ref(false);
+const currentTopic = ref(null);
+const chapters = ref([]);
+const showChapterModal = ref(false);
+const editingChapter = reactive({ id: null, topic_id: null, title: '', subtitle: '', content: '', sort_order: 0, status: 'draft' });
+
+const showChapterEntries = ref(false);
+const currentChapter = ref(null);
+const chapterEntries = ref([]);
+const showTopicEntryModal = ref(false);
+const topicEntryTargetType = ref('chapter');
+const editingTopicEntry = reactive({ id: null, topic_id: null, chapter_id: null, entry_id: null, entry_title: '', note: '', sort_order: 0 });
 
 const showEntryModal = ref(false);
 const editingEntry = reactive({ id: null, title: '', author: '', dynasty: '', summary: '', cover_url: '' });
@@ -381,16 +593,18 @@ function roleTagClass(role) {
 
 async function loadAll() {
   try {
-    const [s, e, v, em] = await Promise.all([
+    const [s, e, v, em, tp] = await Promise.all([
       adminAPI.stats(),
       adminAPI.entries(),
       adminAPI.versions(),
-      adminAPI.allEntries()
+      adminAPI.allEntries(),
+      adminAPI.topics()
     ]);
     stats.value = s.data;
     entries.value = e.data;
     versions.value = v.data;
     entriesMin.value = em.data;
+    topics.value = tp.data;
 
     const map = Object.fromEntries(em.data.map(x => [x.id, x.title]));
     const refsList = [];
@@ -623,6 +837,133 @@ async function submitResetPwd() {
     resetPwdError.value = handleApiError(e, '重置失败');
   } finally {
     resetPwdLoading.value = false;
+  }
+}
+
+function openTopicModal(t = null) {
+  if (t) Object.assign(editingTopic, t);
+  else Object.assign(editingTopic, { id: null, title: '', subtitle: '', author: '', summary: '', cover_url: '', status: 'draft', sort_order: 0 });
+  showTopicModal.value = true;
+}
+
+async function saveTopic() {
+  if (!editingTopic.title) return alert('请填写专题标题');
+  try {
+    if (editingTopic.id) await adminAPI.updateTopic(editingTopic.id, editingTopic);
+    else await adminAPI.createTopic(editingTopic);
+    showTopicModal.value = false;
+    loadAll();
+  } catch (e) {
+    alert(handleApiError(e, '保存失败'));
+  }
+}
+
+async function delTopic(t) {
+  if (!confirm('确认删除专题「' + t.title + '」及其所有章节？')) return;
+  try {
+    await adminAPI.removeTopic(t.id);
+    loadAll();
+  } catch (err) {
+    alert(handleApiError(err, '删除失败'));
+  }
+}
+
+async function editTopicChapters(t) {
+  currentTopic.value = t;
+  showChapterEditor.value = true;
+  showChapterEntries.value = false;
+  try {
+    const { data } = await adminAPI.topicChapters(t.id);
+    chapters.value = data;
+  } catch (e) {
+    alert(handleApiError(e, '加载章节失败'));
+  }
+}
+
+function openChapterModal(c = null) {
+  if (c) Object.assign(editingChapter, c);
+  else Object.assign(editingChapter, { id: null, topic_id: currentTopic.value?.id, title: '', subtitle: '', content: '', sort_order: 0, status: 'draft' });
+  showChapterModal.value = true;
+}
+
+async function saveChapter() {
+  if (!editingChapter.title) return alert('请填写章节标题');
+  try {
+    if (editingChapter.id) await adminAPI.updateChapter(editingChapter.id, editingChapter);
+    else await adminAPI.createChapter(currentTopic.value.id, editingChapter);
+    showChapterModal.value = false;
+    editTopicChapters(currentTopic.value);
+    loadAll();
+  } catch (e) {
+    alert(handleApiError(e, '保存失败'));
+  }
+}
+
+async function delChapter(c) {
+  if (!confirm('确认删除章节「' + c.title + '」？')) return;
+  try {
+    await adminAPI.removeChapter(c.id);
+    editTopicChapters(currentTopic.value);
+    loadAll();
+  } catch (err) {
+    alert(handleApiError(err, '删除失败'));
+  }
+}
+
+async function editChapterEntries(c) {
+  currentChapter.value = c;
+  showChapterEntries.value = true;
+  try {
+    const { data } = await adminAPI.chapter(c.id);
+    chapterEntries.value = data.entries || [];
+  } catch (e) {
+    alert(handleApiError(e, '加载词条失败'));
+  }
+}
+
+function openTopicEntryModal(type, te = null) {
+  topicEntryTargetType.value = type;
+  if (te) {
+    Object.assign(editingTopicEntry, te);
+  } else {
+    Object.assign(editingTopicEntry, {
+      id: null,
+      topic_id: type === 'topic' ? currentTopic.value?.id : null,
+      chapter_id: type === 'chapter' ? currentChapter.value?.id : null,
+      entry_id: entriesMin.value[0]?.id,
+      entry_title: '',
+      note: '',
+      sort_order: 0
+    });
+  }
+  showTopicEntryModal.value = true;
+}
+
+async function saveTopicEntry() {
+  if (!editingTopicEntry.entry_id) return alert('请选择词条');
+  try {
+    if (editingTopicEntry.id) await adminAPI.updateTopicEntry(editingTopicEntry.id, editingTopicEntry);
+    else await adminAPI.createTopicEntry(editingTopicEntry);
+    showTopicEntryModal.value = false;
+    if (topicEntryTargetType.value === 'chapter' && currentChapter.value) {
+      editChapterEntries(currentChapter.value);
+    }
+    loadAll();
+  } catch (e) {
+    alert(handleApiError(e, '保存失败'));
+  }
+}
+
+async function delTopicEntry(te) {
+  if (!confirm('确认删除该词条挂接？')) return;
+  try {
+    await adminAPI.removeTopicEntry(te.id);
+    if (topicEntryTargetType.value === 'chapter' && currentChapter.value) {
+      editChapterEntries(currentChapter.value);
+    }
+    loadAll();
+  } catch (err) {
+    alert(handleApiError(err, '删除失败'));
   }
 }
 
