@@ -18,8 +18,8 @@ const ROLES = {
 
 const ROLE_PERMISSIONS = {
   [ROLES.ADMIN]: ['*'],
-  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review', 'collation:read', 'collation:write', 'collation:conclude', 'collation:review', 'bibliography:read', 'bibliography:write', 'revisions:read', 'revisions:rollback'],
-  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create', 'collation:read', 'bibliography:read', 'revisions:read']
+  [ROLES.EDITOR]: ['entries:read', 'entries:write', 'versions:read', 'versions:write', 'images:read', 'images:write', 'annotations:read', 'annotations:write', 'references:read', 'references:write', 'tasks:read', 'tasks:write', 'tasks:assign', 'tasks:comment', 'topics:read', 'topics:write', 'chapters:read', 'chapters:write', 'submissions:read', 'submissions:review', 'collation:read', 'collation:write', 'collation:conclude', 'collation:review', 'bibliography:read', 'bibliography:write', 'revisions:read', 'revisions:rollback', 'tags:read', 'tags:write', 'categories:read', 'categories:write'],
+  [ROLES.VIEWER]: ['entries:read', 'versions:read', 'images:read', 'annotations:read', 'references:read', 'tasks:read', 'tasks:comment', 'topics:read', 'chapters:read', 'submissions:create', 'collation:read', 'bibliography:read', 'revisions:read', 'tags:read', 'categories:read']
 };
 
 const ROLE_HIERARCHY = {
@@ -401,6 +401,120 @@ function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_revision_history_entity ON revision_history(entity_type, entity_id);
     CREATE INDEX IF NOT EXISTS idx_revision_history_user ON revision_history(user_id);
+
+    CREATE TABLE IF NOT EXISTS tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      slug TEXT UNIQUE,
+      color TEXT DEFAULT '#6366f1',
+      description TEXT,
+      usage_count INTEGER DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      creator_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+    CREATE INDEX IF NOT EXISTS idx_tags_status ON tags(status);
+
+    CREATE TABLE IF NOT EXISTS entry_tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entry_id INTEGER NOT NULL,
+      tag_id INTEGER NOT NULL,
+      creator_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+      FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
+      UNIQUE(entry_id, tag_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_entry_tags_entry ON entry_tags(entry_id);
+    CREATE INDEX IF NOT EXISTS idx_entry_tags_tag ON entry_tags(tag_id);
+
+    CREATE TABLE IF NOT EXISTS version_tags (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      version_id INTEGER NOT NULL,
+      tag_id INTEGER NOT NULL,
+      creator_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE CASCADE,
+      FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
+      UNIQUE(version_id, tag_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_version_tags_version ON version_tags(version_id);
+    CREATE INDEX IF NOT EXISTS idx_version_tags_tag ON version_tags(tag_id);
+
+    CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE,
+      parent_id INTEGER,
+      level INTEGER DEFAULT 1,
+      path TEXT,
+      color TEXT DEFAULT '#10b981',
+      icon TEXT,
+      description TEXT,
+      sort_order INTEGER DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      entry_count INTEGER DEFAULT 0,
+      version_count INTEGER DEFAULT 0,
+      creator_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_categories_status ON categories(status);
+    CREATE INDEX IF NOT EXISTS idx_categories_sort ON categories(sort_order);
+
+    CREATE TABLE IF NOT EXISTS entry_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entry_id INTEGER NOT NULL,
+      category_id INTEGER NOT NULL,
+      is_primary INTEGER DEFAULT 0,
+      creator_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
+      UNIQUE(entry_id, category_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_entry_categories_entry ON entry_categories(entry_id);
+    CREATE INDEX IF NOT EXISTS idx_entry_categories_category ON entry_categories(category_id);
+
+    CREATE TABLE IF NOT EXISTS version_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      version_id INTEGER NOT NULL,
+      category_id INTEGER NOT NULL,
+      is_primary INTEGER DEFAULT 0,
+      creator_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE,
+      FOREIGN KEY (creator_id) REFERENCES users(id) ON DELETE SET NULL,
+      UNIQUE(version_id, category_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_version_categories_version ON version_categories(version_id);
+    CREATE INDEX IF NOT EXISTS idx_version_categories_category ON version_categories(category_id);
+
+    CREATE TABLE IF NOT EXISTS topic_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      topic_id INTEGER,
+      chapter_id INTEGER,
+      version_id INTEGER NOT NULL,
+      note TEXT,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE,
+      FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE,
+      FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_topic_versions_topic ON topic_versions(topic_id);
+    CREATE INDEX IF NOT EXISTS idx_topic_versions_chapter ON topic_versions(chapter_id);
+    CREATE INDEX IF NOT EXISTS idx_topic_versions_version ON topic_versions(version_id);
   `);
 
   try {

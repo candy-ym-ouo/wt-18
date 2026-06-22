@@ -274,6 +274,131 @@ async function routes(fastify) {
     db.prepare('DELETE FROM topic_entries WHERE id = ?').run(id);
     return { ok: true };
   });
+
+  fastify.get('/api/topics/:id/versions', async (req) => {
+    const id = Number(req.params.id);
+    const topic = db.prepare('SELECT id, status FROM topics WHERE id = ?').get(id);
+    if (!topic) {
+      const err = new Error('专题不存在');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (topic.status !== 'published') {
+      const err = new Error('专题未发布');
+      err.statusCode = 403;
+      throw err;
+    }
+    return db.prepare(`
+      SELECT tv.*, v.version_name, v.publisher, v.pub_year, v.pages, v.isbn, v.description,
+        v.entry_id, e.title AS entry_title, e.author AS entry_author, e.cover_url AS entry_cover
+      FROM topic_versions tv
+      JOIN versions v ON tv.version_id = v.id
+      LEFT JOIN entries e ON v.entry_id = e.id
+      WHERE tv.topic_id = ? AND tv.chapter_id IS NULL
+      ORDER BY tv.sort_order ASC, tv.id ASC
+    `).all(id);
+  });
+
+  fastify.get('/api/topics/:id/chapters/:chapterId/versions', async (req) => {
+    const topicId = Number(req.params.id);
+    const chapterId = Number(req.params.chapterId);
+    const chapter = db.prepare(`
+      SELECT c.id, c.status, t.status AS topic_status
+      FROM chapters c JOIN topics t ON c.topic_id = t.id
+      WHERE c.id = ? AND c.topic_id = ?
+    `).get(chapterId, topicId);
+    if (!chapter) {
+      const err = new Error('章节不存在');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (chapter.status !== 'published' || chapter.topic_status !== 'published') {
+      const err = new Error('章节或专题未发布');
+      err.statusCode = 403;
+      throw err;
+    }
+    return db.prepare(`
+      SELECT tv.*, v.version_name, v.publisher, v.pub_year, v.pages, v.isbn, v.description,
+        v.entry_id, e.title AS entry_title, e.author AS entry_author, e.cover_url AS entry_cover
+      FROM topic_versions tv
+      JOIN versions v ON tv.version_id = v.id
+      LEFT JOIN entries e ON v.entry_id = e.id
+      WHERE tv.chapter_id = ?
+      ORDER BY tv.sort_order ASC, tv.id ASC
+    `).all(chapterId);
+  });
+
+  fastify.get('/api/admin/topics/:id/versions', {
+    preHandler: [authenticate(), requireRole(...ADMIN_ROLES)]
+  }, async (req) => {
+    const id = Number(req.params.id);
+    return db.prepare(`
+      SELECT tv.*, v.version_name, v.publisher, v.pub_year,
+        v.entry_id, e.title AS entry_title
+      FROM topic_versions tv
+      JOIN versions v ON tv.version_id = v.id
+      LEFT JOIN entries e ON v.entry_id = e.id
+      WHERE tv.topic_id = ? AND tv.chapter_id IS NULL
+      ORDER BY tv.sort_order ASC, tv.id ASC
+    `).all(id);
+  });
+
+  fastify.get('/api/admin/chapters/:id/versions', {
+    preHandler: [authenticate(), requireRole(...ADMIN_ROLES)]
+  }, async (req) => {
+    const id = Number(req.params.id);
+    return db.prepare(`
+      SELECT tv.*, v.version_name, v.publisher, v.pub_year,
+        v.entry_id, e.title AS entry_title
+      FROM topic_versions tv
+      JOIN versions v ON tv.version_id = v.id
+      LEFT JOIN entries e ON v.entry_id = e.id
+      WHERE tv.chapter_id = ?
+      ORDER BY tv.sort_order ASC, tv.id ASC
+    `).all(id);
+  });
+
+  fastify.post('/api/admin/topic-versions', {
+    preHandler: [authenticate(), requirePermission('topics:write')]
+  }, async (req) => {
+    const { topic_id, chapter_id, version_id, note, sort_order } = req.body;
+    if (!version_id) {
+      const err = new Error('请选择版本');
+      err.statusCode = 400;
+      throw err;
+    }
+    const info = db.prepare(`
+      INSERT INTO topic_versions (topic_id, chapter_id, version_id, note, sort_order)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      topic_id || null,
+      chapter_id || null,
+      Number(version_id),
+      note || '',
+      sort_order || 0
+    );
+    return { id: info.lastInsertRowid };
+  });
+
+  fastify.put('/api/admin/topic-versions/:id', {
+    preHandler: [authenticate(), requirePermission('topics:write')]
+  }, async (req) => {
+    const id = Number(req.params.id);
+    const { note, sort_order } = req.body;
+    db.prepare(`
+      UPDATE topic_versions SET note=?, sort_order=?
+      WHERE id = ?
+    `).run(note || '', sort_order || 0, id);
+    return { ok: true };
+  });
+
+  fastify.delete('/api/admin/topic-versions/:id', {
+    preHandler: [authenticate(), requirePermission('topics:write')]
+  }, async (req) => {
+    const id = Number(req.params.id);
+    db.prepare('DELETE FROM topic_versions WHERE id = ?').run(id);
+    return { ok: true };
+  });
 }
 
 module.exports = routes;

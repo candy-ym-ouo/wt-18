@@ -26,7 +26,16 @@ async function routes(fastify) {
       topics: db.prepare('SELECT COUNT(*) AS c FROM topics').get().c,
       chapters: db.prepare('SELECT COUNT(*) AS c FROM chapters').get().c,
       submissions: db.prepare('SELECT COUNT(*) AS c FROM version_submissions').get().c,
-      pendingSubmissions: db.prepare('SELECT COUNT(*) AS c FROM version_submissions WHERE status = ?').get('pending').c
+      pendingSubmissions: db.prepare('SELECT COUNT(*) AS c FROM version_submissions WHERE status = ?').get('pending').c,
+      tags: db.prepare('SELECT COUNT(*) AS c FROM tags').get().c,
+      activeTags: db.prepare('SELECT COUNT(*) AS c FROM tags WHERE status = ?').get('active').c,
+      categories: db.prepare('SELECT COUNT(*) AS c FROM categories').get().c,
+      activeCategories: db.prepare('SELECT COUNT(*) AS c FROM categories WHERE status = ?').get('active').c,
+      entryTagRelations: db.prepare('SELECT COUNT(*) AS c FROM entry_tags').get().c,
+      versionTagRelations: db.prepare('SELECT COUNT(*) AS c FROM version_tags').get().c,
+      entryCategoryRelations: db.prepare('SELECT COUNT(*) AS c FROM entry_categories').get().c,
+      versionCategoryRelations: db.prepare('SELECT COUNT(*) AS c FROM version_categories').get().c,
+      topicVersionRelations: db.prepare('SELECT COUNT(*) AS c FROM topic_versions').get().c
     };
   });
 

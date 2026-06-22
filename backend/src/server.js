@@ -52,7 +52,9 @@ try {
     ['notifications', require('./routes/notifications')],
     ['dataCenter', require('./routes/dataCenter')],
     ['revisionHistory', require('./routes/revisionHistory')],
-    ['search', require('./routes/search')]
+    ['search', require('./routes/search')],
+    ['tags', require('./routes/tags')],
+    ['categories', require('./routes/categories')]
   ];
 
   for (const [name, mod] of routeModules) {

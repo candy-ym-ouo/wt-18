@@ -103,15 +103,8 @@ function buildSearchQuery(type, params) {
   return { whereClause, values };
 }
 
-function searchEntries(params, sortBy, sortOrder) {
+function searchEntries(params) {
   const { whereClause, values } = buildSearchQuery('entry', params);
-  
-  let orderClause = 'ORDER BY e.id DESC';
-  if (sortBy === 'title') {
-    orderClause = `ORDER BY e.title ${sortOrder}`;
-  } else if (sortBy === 'created_at') {
-    orderClause = `ORDER BY e.created_at ${sortOrder}`;
-  }
 
   const query = `
     SELECT 
@@ -127,21 +120,14 @@ function searchEntries(params, sortBy, sortOrder) {
       (SELECT COUNT(*) FROM versions v WHERE v.entry_id = e.id) AS version_count
     FROM entries e
     ${whereClause}
-    ${orderClause}
+    ORDER BY e.id DESC
   `;
 
   return db.prepare(query).all(...values);
 }
 
-function searchVersions(params, sortBy, sortOrder) {
+function searchVersions(params) {
   const { whereClause, values } = buildSearchQuery('version', params);
-
-  let orderClause = 'ORDER BY v.id DESC';
-  if (sortBy === 'title') {
-    orderClause = `ORDER BY v.version_name ${sortOrder}`;
-  } else if (sortBy === 'created_at') {
-    orderClause = `ORDER BY v.created_at ${sortOrder}`;
-  }
 
   const query = `
     SELECT 
@@ -162,21 +148,14 @@ function searchVersions(params, sortBy, sortOrder) {
     FROM versions v
     JOIN entries e ON v.entry_id = e.id
     ${whereClause}
-    ${orderClause}
+    ORDER BY v.id DESC
   `;
 
   return db.prepare(query).all(...values);
 }
 
-function searchAnnotations(params, sortBy, sortOrder) {
+function searchAnnotations(params) {
   const { whereClause, values } = buildSearchQuery('annotation', params);
-
-  let orderClause = 'ORDER BY a.id DESC';
-  if (sortBy === 'created_at') {
-    orderClause = `ORDER BY a.created_at ${sortOrder}`;
-  } else if (sortBy === 'title') {
-    orderClause = `ORDER BY a.user_name ${sortOrder}`;
-  }
 
   const query = `
     SELECT 
@@ -195,21 +174,14 @@ function searchAnnotations(params, sortBy, sortOrder) {
     JOIN versions v ON a.version_id = v.id
     JOIN entries e ON v.entry_id = e.id
     ${whereClause}
-    ${orderClause}
+    ORDER BY a.id DESC
   `;
 
   return db.prepare(query).all(...values);
 }
 
-function searchReferences(params, sortBy, sortOrder) {
+function searchReferences(params) {
   const { whereClause, values } = buildSearchQuery('reference', params);
-
-  let orderClause = 'ORDER BY r.id DESC';
-  if (sortBy === 'created_at') {
-    orderClause = `ORDER BY r.created_at ${sortOrder}`;
-  } else if (sortBy === 'title') {
-    orderClause = `ORDER BY e_from.title ${sortOrder}`;
-  }
 
   const query = `
     SELECT 
@@ -230,7 +202,7 @@ function searchReferences(params, sortBy, sortOrder) {
     JOIN entries e_from ON r.from_entry_id = e_from.id
     JOIN entries e_to ON r.to_entry_id = e_to.id
     ${whereClause}
-    ${orderClause}
+    ORDER BY r.id DESC
   `;
 
   return db.prepare(query).all(...values);
@@ -286,34 +258,44 @@ async function routes(fastify) {
     const aggregations = {};
 
     if (typeList.includes('entry')) {
-      const results = searchEntries(params, sortBy, sortOrder);
+      const results = searchEntries(params);
       aggregations.entry = results.length;
       allResults.push(...results);
     }
 
     if (typeList.includes('version')) {
-      const results = searchVersions(params, sortBy, sortOrder);
+      const results = searchVersions(params);
       aggregations.version = results.length;
       allResults.push(...results);
     }
 
     if (typeList.includes('annotation')) {
-      const results = searchAnnotations(params, sortBy, sortOrder);
+      const results = searchAnnotations(params);
       aggregations.annotation = results.length;
       allResults.push(...results);
     }
 
     if (typeList.includes('reference')) {
-      const results = searchReferences(params, sortBy, sortOrder);
+      const results = searchReferences(params);
       aggregations.reference = results.length;
       allResults.push(...results);
     }
 
+    const dir = sortOrder === 'desc' ? -1 : 1;
+
     if (sortBy === 'relevance') {
+      allResults.sort((a, b) => dir * (computeRelevance(b, q) - computeRelevance(a, q)));
+    } else if (sortBy === 'created_at') {
       allResults.sort((a, b) => {
-        const scoreA = computeRelevance(a, q);
-        const scoreB = computeRelevance(b, q);
-        return sortOrder === 'desc' ? scoreB - scoreA : scoreA - scoreB;
+        const tA = a.created_at || '';
+        const tB = b.created_at || '';
+        return dir * tA.localeCompare(tB);
+      });
+    } else if (sortBy === 'title') {
+      allResults.sort((a, b) => {
+        const tA = (a.title || '').toLowerCase();
+        const tB = (b.title || '').toLowerCase();
+        return dir * tA.localeCompare(tB, 'zh-Hans-CN');
       });
     }
 
