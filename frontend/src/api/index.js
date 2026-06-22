@@ -238,6 +238,68 @@ export const revisionsAPI = {
   snapshot: (entityType, entityId) => api.get(`/api/revisions/snapshot/${entityType}/${entityId}`)
 };
 
+export const tagsAPI = {
+  list: (params = {}) => api.get('/api/tags', { params }),
+  cloud: (params = {}) => api.get('/api/tags/cloud', { params }),
+  get: (id) => api.get(`/api/tags/${id}`),
+  getBySlug: (slug) => api.get(`/api/tags/slug/${slug}`),
+  adminList: (params = {}) => api.get('/api/admin/tags', { params }),
+  adminGet: (id) => api.get(`/api/admin/tags/${id}`),
+  create: (data) => api.post('/api/admin/tags', data),
+  update: (id, data) => api.put(`/api/admin/tags/${id}`, data),
+  remove: (id) => api.delete(`/api/admin/tags/${id}`),
+  batchCreate: (names) => api.post('/api/admin/tags/batch', { names }),
+  merge: (sourceId, targetId) => api.post(`/api/admin/tags/${sourceId}/merge`, { target_id: targetId })
+};
+
+export const categoriesAPI = {
+  list: (params = {}) => api.get('/api/categories', { params }),
+  get: (id) => api.get(`/api/categories/${id}`),
+  getBySlug: (slug) => api.get(`/api/categories/slug/${slug}`),
+  adminList: (params = {}) => api.get('/api/admin/categories', { params }),
+  adminGet: (id) => api.get(`/api/admin/categories/${id}`),
+  create: (data) => api.post('/api/admin/categories', data),
+  update: (id, data) => api.put(`/api/admin/categories/${id}`, data),
+  remove: (id) => api.delete(`/api/admin/categories/${id}`),
+  move: (id, data) => api.post(`/api/admin/categories/${id}/move`, data)
+};
+
+export const entryTagsAPI = {
+  list: (entryId) => api.get(`/api/entries/${entryId}/tags`),
+  add: (entryId, data) => api.post(`/api/entries/${entryId}/tags`, data),
+  remove: (entryId, tagId) => api.delete(`/api/entries/${entryId}/tags/${tagId}`)
+};
+
+export const entryCategoriesAPI = {
+  list: (entryId) => api.get(`/api/entries/${entryId}/categories`),
+  add: (entryId, data) => api.post(`/api/entries/${entryId}/categories`, data),
+  remove: (entryId, categoryId) => api.delete(`/api/entries/${entryId}/categories/${categoryId}`),
+  setPrimary: (entryId, categoryId) => api.put(`/api/entries/${entryId}/categories/${categoryId}/primary`)
+};
+
+export const versionTagsAPI = {
+  list: (versionId) => api.get(`/api/versions/${versionId}/tags`),
+  add: (versionId, data) => api.post(`/api/versions/${versionId}/tags`, data),
+  remove: (versionId, tagId) => api.delete(`/api/versions/${versionId}/tags/${tagId}`)
+};
+
+export const versionCategoriesAPI = {
+  list: (versionId) => api.get(`/api/versions/${versionId}/categories`),
+  add: (versionId, data) => api.post(`/api/versions/${versionId}/categories`, data),
+  remove: (versionId, categoryId) => api.delete(`/api/versions/${versionId}/categories/${categoryId}`),
+  setPrimary: (versionId, categoryId) => api.put(`/api/versions/${versionId}/categories/${categoryId}/primary`)
+};
+
+export const topicVersionsAPI = {
+  listByTopic: (topicId) => api.get(`/api/topics/${topicId}/versions`),
+  listByChapter: (topicId, chapterId) => api.get(`/api/topics/${topicId}/chapters/${chapterId}/versions`),
+  adminListByTopic: (topicId) => api.get(`/api/admin/topics/${topicId}/versions`),
+  adminListByChapter: (chapterId) => api.get(`/api/admin/chapters/${chapterId}/versions`),
+  create: (data) => api.post('/api/admin/topic-versions', data),
+  update: (id, data) => api.put(`/api/admin/topic-versions/${id}`, data),
+  remove: (id) => api.delete(`/api/admin/topic-versions/${id}`)
+};
+
 const FIELD_LABELS = {
   title: '标题',
   author: '作者',

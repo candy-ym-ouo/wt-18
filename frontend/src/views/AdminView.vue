@@ -11,6 +11,14 @@
       <div class="stat-card"><div class="num">{{ stats.users || 0 }}</div><div class="label">学者数</div></div>
       <div class="stat-card"><div class="num">{{ stats.topics || 0 }}</div><div class="label">专题数</div></div>
       <div class="stat-card"><div class="num">{{ stats.chapters || 0 }}</div><div class="label">章节数</div></div>
+      <div class="stat-card" style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);">
+        <div class="num" style="color:#7c3aed;">{{ stats.tags || 0 }}</div>
+        <div class="label">标签数</div>
+      </div>
+      <div class="stat-card" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);">
+        <div class="num" style="color:#15803d;">{{ stats.categories || 0 }}</div>
+        <div class="label">分类数</div>
+      </div>
       <div class="stat-card" :class="{ 'pending-alert': stats.pendingSubmissions > 0 }">
         <div class="num">{{ stats.pendingSubmissions || 0 }}</div>
         <div class="label">待审核征集</div>
@@ -23,6 +31,8 @@
       <button :class="['btn', tab==='versions'?'':'secondary']" @click="tab='versions'">版本管理</button>
       <button :class="['btn', tab==='refs'?'':'secondary']" @click="tab='refs'">引用关系</button>
       <button :class="['btn', tab==='topics'?'':'secondary']" @click="tab='topics'">专题专栏</button>
+      <button :class="['btn', tab==='tags'?'':'secondary']" @click="tab='tags'">标签管理</button>
+      <button :class="['btn', tab==='categories'?'':'secondary']" @click="tab='categories'">分类管理</button>
       <button :class="['btn', tab==='submissions'?'':'secondary']" @click="tab='submissions'">
         版本征集
         <span v-if="stats.pendingSubmissions > 0" class="badge">{{ stats.pendingSubmissions }}</span>
@@ -186,7 +196,7 @@
             <option value="rejected">已拒绝</option>
           </select>
         </div>
-      </div>
+          </div>
       <table>
         <thead><tr><th>ID</th><th>词条/书名</th><th>版本名</th><th>提交人</th><th>状态</th><th>图片</th><th>提交时间</th><th>审核人</th><th>操作</th></tr></thead>
         <tbody>
@@ -211,6 +221,14 @@
         </tbody>
       </table>
       <div v-if="submissions.length === 0" style="padding:30px;text-align:center;color:#999;">暂无征集记录</div>
+    </div>
+
+    <div v-if="tab==='tags'" class="card">
+      <AdminTags ref="adminTagsRef" />
+    </div>
+
+    <div v-if="tab==='categories'" class="card">
+      <AdminCategories ref="adminCategoriesRef" />
     </div>
 
     <div v-if="showSubmissionDetail" class="modal-overlay" @click.self="showSubmissionDetail=false">
@@ -424,7 +442,7 @@
     </div>
 
     <div v-if="showEntryModal" class="modal-overlay" @click.self="showEntryModal=false">
-      <div class="modal">
+      <div class="modal" style="max-width:600px;">
         <h3>{{ editingEntry.id ? '编辑词条' : '新建词条' }}</h3>
         <div class="form-group">
           <label>书名 *</label>
@@ -446,6 +464,17 @@
           <label>内容简介</label>
           <textarea v-model="editingEntry.summary"></textarea>
         </div>
+        <TagSelector
+          label="标签"
+          v-model="editingEntry.tag_ids"
+          placeholder="搜索或选择标签..."
+        />
+        <CategorySelector
+          label="分类（可多选，设为主分类）"
+          v-model="editingEntry.category_ids"
+          v-model:primaryCategoryId="editingEntry.primary_category_id"
+          placeholder="搜索或选择分类..."
+        />
         <div style="text-align:right;">
           <button class="btn secondary" style="margin-right:8px;" @click="showEntryModal=false">取消</button>
           <button class="btn" @click="saveEntry">保存</button>
@@ -454,7 +483,7 @@
     </div>
 
     <div v-if="showVersionModal" class="modal-overlay" @click.self="showVersionModal=false">
-      <div class="modal">
+      <div class="modal" style="max-width:600px;">
         <h3>{{ editingVersion.id ? '编辑版本' : '新建版本' }}</h3>
         <div class="form-group">
           <label>所属词条 *</label>
@@ -490,6 +519,17 @@
           <label>全文录入（选填）</label>
           <textarea v-model="editingVersion.full_text" style="min-height:120px;"></textarea>
         </div>
+        <TagSelector
+          label="标签"
+          v-model="editingVersion.tag_ids"
+          placeholder="搜索或选择标签..."
+        />
+        <CategorySelector
+          label="分类（可多选，设为主分类）"
+          v-model="editingVersion.category_ids"
+          v-model:primaryCategoryId="editingVersion.primary_category_id"
+          placeholder="搜索或选择分类..."
+        />
         <div style="text-align:right;">
           <button class="btn secondary" style="margin-right:8px;" @click="showVersionModal=false">取消</button>
           <button class="btn" @click="saveVersion">保存</button>
@@ -704,17 +744,24 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue';
-import { entriesAPI, versionsAPI, referencesAPI, adminAPI, ROLES, ROLE_LABELS, ROLE_LEVELS, handleApiError, submissionsAPI } from '../api';
+import { entriesAPI, versionsAPI, referencesAPI, adminAPI, ROLES, ROLE_LABELS, ROLE_LEVELS, handleApiError, submissionsAPI, tagsAPI, categoriesAPI } from '../api';
 import { useUserStore } from '../stores/user';
+import AdminTags from '../components/AdminTags.vue';
+import AdminCategories from '../components/AdminCategories.vue';
+import TagSelector from '../components/TagSelector.vue';
+import CategorySelector from '../components/CategorySelector.vue';
 
 const userStore = useUserStore();
 
 const tab = ref('entries');
-const stats = ref({ entries: 0, versions: 0, images: 0, annotations: 0, references: 0, users: 0, topics: 0, chapters: 0 });
+const stats = ref({ entries: 0, versions: 0, images: 0, annotations: 0, references: 0, users: 0, topics: 0, chapters: 0, tags: 0, categories: 0 });
 const entries = ref([]);
 const entriesMin = ref([]);
 const versions = ref([]);
 const allRefs = ref([]);
+
+const adminTagsRef = ref(null);
+const adminCategoriesRef = ref(null);
 
 const topics = ref([]);
 const showTopicModal = ref(false);
@@ -736,10 +783,10 @@ const topicEntryTargetType = ref('chapter');
 const editingTopicEntry = reactive({ id: null, topic_id: null, chapter_id: null, entry_id: null, entry_title: '', note: '', sort_order: 0 });
 
 const showEntryModal = ref(false);
-const editingEntry = reactive({ id: null, title: '', author: '', dynasty: '', summary: '', cover_url: '' });
+const editingEntry = reactive({ id: null, title: '', author: '', dynasty: '', summary: '', cover_url: '', tag_ids: [], category_ids: [], primary_category_id: null });
 
 const showVersionModal = ref(false);
-const editingVersion = reactive({ id: null, entry_id: null, version_name: '', publisher: '', pub_year: '', pages: null, isbn: '', description: '', full_text: '' });
+const editingVersion = reactive({ id: null, entry_id: null, version_name: '', publisher: '', pub_year: '', pages: null, isbn: '', description: '', full_text: '', tag_ids: [], category_ids: [], primary_category_id: null });
 
 const showRefModal = ref(false);
 const newRef = reactive({ from_entry_id: null, to_entry_id: null, relation_type: '相关', note: '' });
@@ -815,14 +862,20 @@ function roleTagClass(role) {
 
 async function loadAll() {
   try {
-    const [s, e, v, em, tp] = await Promise.all([
+    const [s, e, v, em, tp, tagsRes, catsRes] = await Promise.all([
       adminAPI.stats(),
       adminAPI.entries(),
       adminAPI.versions(),
       adminAPI.allEntries(),
-      adminAPI.topics()
+      adminAPI.topics(),
+      tagsAPI.list({ page_size: 1 }),
+      categoriesAPI.list({ page_size: 1 })
     ]);
-    stats.value = s.data;
+    stats.value = {
+      ...s.data,
+      tags: tagsRes.data.pagination?.total || 0,
+      categories: catsRes.data.pagination?.total || 0
+    };
     entries.value = e.data;
     versions.value = v.data;
     entriesMin.value = em.data;
@@ -858,9 +911,21 @@ async function loadAll() {
   }
 }
 
-function openEntryModal(e = null) {
-  if (e) Object.assign(editingEntry, e);
-  else Object.assign(editingEntry, { id: null, title: '', author: '', dynasty: '', summary: '', cover_url: '' });
+async function openEntryModal(e = null) {
+  if (e) {
+    try {
+      const { data: entryData } = await entriesAPI.get(e.id);
+      Object.assign(editingEntry, entryData, {
+        tag_ids: entryData.tags ? entryData.tags.map(t => t.id) : [],
+        category_ids: entryData.categories ? entryData.categories.map(c => c.id) : [],
+        primary_category_id: entryData.primary_category?.id || null
+      });
+    } catch (err) {
+      Object.assign(editingEntry, e, { tag_ids: [], category_ids: [], primary_category_id: null });
+    }
+  } else {
+    Object.assign(editingEntry, { id: null, title: '', author: '', dynasty: '', summary: '', cover_url: '', tag_ids: [], category_ids: [], primary_category_id: null });
+  }
   showEntryModal.value = true;
 }
 
@@ -886,9 +951,21 @@ async function delEntry(e) {
   }
 }
 
-function openVersionModal(v = null) {
-  if (v) Object.assign(editingVersion, v);
-  else Object.assign(editingVersion, { id: null, entry_id: entriesMin.value[0]?.id, version_name: '', publisher: '', pub_year: '', pages: null, isbn: '', description: '', full_text: '' });
+async function openVersionModal(v = null) {
+  if (v) {
+    try {
+      const { data: versionData } = await versionsAPI.get(v.id);
+      Object.assign(editingVersion, versionData, {
+        tag_ids: versionData.tags ? versionData.tags.map(t => t.id) : [],
+        category_ids: versionData.categories ? versionData.categories.map(c => c.id) : [],
+        primary_category_id: versionData.primary_category?.id || null
+      });
+    } catch (err) {
+      Object.assign(editingVersion, v, { tag_ids: [], category_ids: [], primary_category_id: null });
+    }
+  } else {
+    Object.assign(editingVersion, { id: null, entry_id: entriesMin.value[0]?.id, version_name: '', publisher: '', pub_year: '', pages: null, isbn: '', description: '', full_text: '', tag_ids: [], category_ids: [], primary_category_id: null });
+  }
   showVersionModal.value = true;
 }
 

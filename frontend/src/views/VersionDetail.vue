@@ -12,6 +12,29 @@
             <span v-if="version.isbn"> · ISBN: {{ version.isbn }}</span>
           </p>
           <p style="margin-top:10px;color:#555;">{{ version.description }}</p>
+          <div v-if="version.categories && version.categories.length" style="margin-top:12px;">
+            <label style="font-size:13px;color:#6b7280;margin-right:8px;">分类：</label>
+            <span
+              v-for="c in version.categories"
+              :key="c.id"
+              class="tag cat-tag"
+              :style="{ backgroundColor: c.color + '15', borderColor: c.color + '40', color: c.color }"
+              :title="c.is_primary ? '主分类' : ''"
+            >
+              {{ c.is_primary ? '★ ' : '' }}{{ c.name }}
+            </span>
+          </div>
+          <div v-if="version.tags && version.tags.length" style="margin-top:8px;">
+            <label style="font-size:13px;color:#6b7280;margin-right:8px;">标签：</label>
+            <span
+              v-for="t in version.tags"
+              :key="t.id"
+              class="tag"
+              :style="{ backgroundColor: t.color + '15', borderColor: t.color + '40', color: t.color }"
+            >
+              {{ t.name }}
+            </span>
+          </div>
         </div>
       </div>
     </div>

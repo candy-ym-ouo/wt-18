@@ -16,6 +16,29 @@
             收录版本 {{ entry.versions?.length || 0 }} 个 ·
             更新于 {{ entry.updated_at }}
           </p>
+          <div v-if="entry.categories && entry.categories.length" style="margin-top:12px;">
+            <label style="font-size:13px;color:#6b7280;margin-right:8px;">分类：</label>
+            <span
+              v-for="c in entry.categories"
+              :key="c.id"
+              class="tag cat-tag"
+              :style="{ backgroundColor: c.color + '15', borderColor: c.color + '40', color: c.color }"
+              :title="c.is_primary ? '主分类' : ''"
+            >
+              {{ c.is_primary ? '★ ' : '' }}{{ c.name }}
+            </span>
+          </div>
+          <div v-if="entry.tags && entry.tags.length" style="margin-top:8px;">
+            <label style="font-size:13px;color:#6b7280;margin-right:8px;">标签：</label>
+            <span
+              v-for="t in entry.tags"
+              :key="t.id"
+              class="tag"
+              :style="{ backgroundColor: t.color + '15', borderColor: t.color + '40', color: t.color }"
+            >
+              {{ t.name }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -33,6 +56,16 @@
           <span v-if="v.isbn"> · ISBN: {{ v.isbn }}</span>
         </p>
         <p style="margin-top:8px;font-size:14px;color:#555;">{{ v.description }}</p>
+        <div v-if="v.tags && v.tags.length" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">
+          <span
+            v-for="t in v.tags.slice(0, 4)"
+            :key="t.id"
+            class="tag"
+            :style="{ backgroundColor: t.color + '15', borderColor: t.color + '40', color: t.color, fontSize: '11px', padding: '2px 8px' }"
+          >
+            {{ t.name }}
+          </span>
+        </div>
         <div style="margin-top:10px;">
           <router-link :to="`/versions/${v.id}`" class="btn sm secondary">查看详情</router-link>
         </div>
